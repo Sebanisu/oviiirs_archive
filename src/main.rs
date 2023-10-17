@@ -68,7 +68,7 @@ fn main() -> io::Result<()> {
 			println!("Exiting the program");
 			// Perform any necessary cleanup and exit the program
 			// You can return a default value here or use a placeholder value
-			exit(1);
+			exit(0);
 		}
 	};
 
@@ -141,44 +141,53 @@ fn extract_chosen_directory(config: &Value) -> Option<String> {
 
 
 fn handle_empty_directories() -> DirectorySelection {
-    println!("No directories are configured. Please enter a new directory path:");
+    println!("\nNo directories are configured.\nOptions:");	
+    println!("  - Press Enter to Exit.");
+	println!("  - Please enter a new directory path:");
     let mut new_dir_path = String::new();
     io::stdin().read_line(&mut new_dir_path).expect("Failed to read user input");
     let new_dir_path = new_dir_path.trim();
+	loop {
+		if !new_dir_path.is_empty() {
+			let dir_exists = Path::new(new_dir_path).exists();
 
-    if !new_dir_path.is_empty() {
-        let dir_exists = Path::new(new_dir_path).exists();
-
-        if dir_exists {
-			return DirectorySelection::NewDirectory(new_dir_path.to_string());
-        } else {
-            println!("The entered directory does not exist.");
-        }
-    } else {
-        println!("Invalid directory path.");
-    }	
-	return DirectorySelection::Exit;
+			if dir_exists {
+				return DirectorySelection::NewDirectory(new_dir_path.to_string());
+			} else {
+				println!("The entered directory does not exist.");
+			}
+		} else {			
+			return DirectorySelection::Exit;
+		}	
+	}
 }
 
 fn display_directory_info(directories: &Vec<String>, previously_chosen_directory: &Option<String>) -> DirectorySelection {
     loop {
+		
+		println!("\nSaved FF8 Directories:\n");
+		
         for (index, dir_path) in directories.iter().enumerate() {
             let dir_exists = Path::new(dir_path).is_dir();
             if dir_exists {
-                println!("{}: {}", index + 1, dir_path);
+				println!("{:>6}: {}", index + 1, dir_path);
             }
         }
 
         // Offer the option to enter a new directory
-        println!("Enter 'N' to use a new directory");
+		
+		
+        println!("\nOptions:\n");
+        println!("  - Enter 'N' to use a new directory");
+		println!("  - Enter the number of the directory you want to choose (or '0' to exit):");
 		match previously_chosen_directory{
 			Some(s) => {
-				println!("Press Enter to use the previously chosen directory: {}",s);
+				println!("  - Press Enter to use the previously chosen directory: {}",s);
 			},
 			None => {
 			}
 		}
-        println!("Enter the number of the directory you want to choose (or '0' to exit):");
+        
 
         let mut user_input = String::new();
         io::stdin().read_line(&mut user_input).expect("Failed to read user input");
@@ -188,11 +197,11 @@ fn display_directory_info(directories: &Vec<String>, previously_chosen_directory
 		let is_condition_met = || {
 			let user_empty = user_input.is_empty();
 			let has_chosen_directory = previously_chosen_directory.is_some();
-			
+
 			if !user_empty {
 				println!("User input is not empty.");
 			}
-			
+
 			if !has_chosen_directory {
 				println!("No previously chosen directory is available.");
 			}
@@ -201,15 +210,15 @@ fn display_directory_info(directories: &Vec<String>, previously_chosen_directory
 				let path = Path::new(directory_path);
 				let path_exists = path.exists();
 				let is_directory = path.is_dir();
-				
+
 				if !path_exists {
 					println!("Directory path does not exist: {:?}", directory_path);
 				}
-				
+
 				if !is_directory {
 					println!("Directory path is not a directory: {:?}", directory_path);
 				}
-				
+
 				path_exists && is_directory
 			} else {
 				println!("No directory path available.");
@@ -222,6 +231,7 @@ fn display_directory_info(directories: &Vec<String>, previously_chosen_directory
 
 			user_empty && has_chosen_directory && directory_condition
 		};
+
 
 		// Usage
 		if is_condition_met() {
