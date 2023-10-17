@@ -25,10 +25,28 @@ fn main() -> io::Result<()> {
 
     let directories = extract_directories(&config)?;
 
-    if directories.is_empty() {
-        handle_empty_directories();
+    let user_choice = if directories.is_empty() {
+        handle_empty_directories()
     } else {
-        display_directory_info(&directories);
+        display_directory_info(&directories)
+    };
+
+    match user_choice {
+        DirectorySelection::NewDirectory(new_dir) => {
+            // Handle the case when a new directory is chosen
+            println!("New directory selected: {}", new_dir);
+            // Do something extra for the new directory
+        }
+        DirectorySelection::ExistingDirectory(existing_dir) => {
+            // Handle the case when an existing directory is chosen
+            println!("Existing directory selected: {}", existing_dir);
+            // Remember the chosen directory and do something for existing directory
+        }
+        DirectorySelection::Exit => {
+            // Handle the case when the user chooses to exit
+            println!("Exiting the program");
+            // Perform any necessary cleanup and exit the program
+        }
     }
 
     Ok(())
