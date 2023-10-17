@@ -5,6 +5,7 @@ use std::io;
 use std::path::Path;
 use toml::Value;
 use std::process::exit;
+use std::io::Write;
 
 enum DirectorySelection {
     NewDirectory(String),
@@ -21,9 +22,9 @@ fn main() -> io::Result<()> {
 
     let contents = read_file_contents(config_path)?;
 
-    let config = parse_toml_contents(&contents, config_path)?;
+    let mut config = parse_toml_contents(&contents, config_path)?;
 
-    let directories = extract_directories(&config)?;
+    let mut directories = extract_directories(&config)?;
 
     let user_choice = if directories.is_empty() {
         handle_empty_directories()
@@ -31,23 +32,53 @@ fn main() -> io::Result<()> {
         display_directory_info(&directories)
     };
 
-    match user_choice {
-        DirectorySelection::NewDirectory(new_dir) => {
-            // Handle the case when a new directory is chosen
-            println!("New directory selected: {}", new_dir);
-            // Do something extra for the new directory
-        }
-        DirectorySelection::ExistingDirectory(existing_dir) => {
-            // Handle the case when an existing directory is chosen
-            println!("Existing directory selected: {}", existing_dir);
-            // Remember the chosen directory and do something for existing directory
-        }
-        DirectorySelection::Exit => {
-            // Handle the case when the user chooses to exit
-            println!("Exiting the program");
-            // Perform any necessary cleanup and exit the program
-        }
-    }
+	let chosen_directory = match user_choice {
+		DirectorySelection::NewDirectory(new_dir) => {
+			// Handle the case when a new directory is chosen
+			println!("New directory selected: {}", new_dir);
+			// Do something extra for the new directory
+			directories.push(new_dir.clone());
+
+			// Create the "directories" key if it doesn't exist
+				if !config.as_table().unwrap().contains_key("directories") {
+					config.as_table_mut().unwrap().insert("directories".to_string(), toml::Value::Array(Vec::new()));
+				}
+
+				// Update the "directories" array
+				let directories_array = config.as_table_mut().unwrap().get_mut("directories").unwrap();
+				if let toml::Value::Array(array) = directories_array {
+					for dir in directories {
+						array.push(toml::Value::String(dir));
+					}
+				} else {
+					panic!("'directories' is not an array in the TOML file");
+				}
+
+
+			new_dir
+		}
+		DirectorySelection::ExistingDirectory(existing_dir) => {
+			// Handle the case when an existing directory is chosen
+			println!("Existing directory selected: {}", existing_dir);
+			// Remember the chosen directory and do something for existing directory
+			existing_dir
+		}
+		DirectorySelection::Exit => {
+			// Handle the case when the user chooses to exit
+			println!("Exiting the program");
+			// Perform any necessary cleanup and exit the program
+			// You can return a default value here or use a placeholder value
+			exit(1);
+		}
+	};
+
+	// Use the chosen_directory variable for any common logic
+	if let Value::Table(table) = &mut config {
+		table.insert("chosen_directory".to_string(), Value::String(chosen_directory.to_string()));
+	} else {
+		panic!("Root of config.toml is not a table");
+	}
+	save_config(&config,config_path)?;
 
     Ok(())
 }
@@ -78,16 +109,19 @@ fn parse_toml_contents(contents: &str, config_path: &str) -> io::Result<Value> {
 
 fn extract_directories(config: &Value) -> io::Result<Vec<String>> {
     if let Some(config_directories) = config.get("directories") {
-        config_directories
+        let dirs: io::Result<Vec<String>> = config_directories
             .as_array()
-            .ok_or(io::Error::new(io::ErrorKind::Other, "Invalid directories"))?
-            .iter()
-            .map(|dir| {
-                dir.as_str()
-                    .ok_or(io::Error::new(io::ErrorKind::Other, "Invalid directory path"))
-                    .map(|dir_str| dir_str.to_string())
-            })
-            .collect::<Result<Vec<String>, _>>()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Invalid directories"))
+            .and_then(|arr| {
+                arr.iter()
+                    .map(|dir| {
+                        dir.as_str()
+                            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Invalid directory path"))
+                            .map(|dir_str| dir_str.to_string())
+                    })
+                    .collect::<Result<Vec<String>, io::Error>>()
+            });
+        dirs
     } else {
         Ok(Vec::new())
     }
@@ -111,19 +145,6 @@ fn handle_empty_directories() -> DirectorySelection {
         println!("Invalid directory path.");
     }	
 	return DirectorySelection::Exit;
-}
-
-fn append_directory_to_config(config_path: &str, new_dir_path: &str) {
-	let mut new_config = Value::Table(toml::value::Table::new());
-	new_config
-		.as_table_mut()
-		.unwrap()
-		.insert("directories".to_string(), Value::Array(vec![Value::String(new_dir_path.to_string())]));
-
-	let new_config_str = toml::to_string(&new_config).expect("Failed to generate default config");
-	fs::write(config_path, new_config_str).expect("Failed to write to config.toml");
-
-	println!("Directory added to config.toml.");
 }
 
 fn display_directory_info(directories: &Vec<String>) -> DirectorySelection {
@@ -181,6 +202,20 @@ fn display_directory_info(directories: &Vec<String>) -> DirectorySelection {
             }
         }
     }
+}
+
+fn save_config(config: &toml::Value, filename: &str) -> Result<(), std::io::Error> {
+    let config_str = toml::to_string(config)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to serialize updated config: {}", e)))?;
+
+    let mut file = fs::File::create(filename)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to create the specified file: {}", e)))?;
+
+    let mut buf_writer = io::BufWriter::new(&mut file);
+
+    buf_writer.write_all(config_str.as_bytes())?;
+    buf_writer.flush()?;
+    Ok(())
 }
 
 
