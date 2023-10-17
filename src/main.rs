@@ -102,27 +102,4 @@ fn display_directory_info(directories: &[String]) {
         let dir_exists = Path::new(dir_path).is_dir();
         println!("Directory {}:\nPath: {}\nExists: {}\n", index + 1, dir_path, dir_exists);
     }
-	// Ask the user to choose a directory
-	println!("Enter the number of the directory you want to choose (or '0' to exit):");
-
-	let mut user_input = String::new();
-	io::stdin().read_line(&mut user_input).expect("Failed to read user input");
-
-	match user_input.trim().parse::<usize>() {
-		Ok(choice) if choice >= 1 && choice <= directories.len() => {
-			// User selected a valid directory
-			let selected_directory = &directories[choice - 1];
-			println!("You chose directory {}:\nPath: {}\n", choice, selected_directory);
-			// Now you can use 'selected_directory' for further processing.
-		}
-		Ok(0) => {
-			// User chose to exit
-			println!("Exiting...");
-		}
-		_ => {
-			// Invalid choice
-			println!("Invalid choice. Please enter a valid number.");
-		}
-	}    
 }
-
