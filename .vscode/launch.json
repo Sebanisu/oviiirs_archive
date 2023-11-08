@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'oviiirs_archive'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=oviiirs_archive",
+                    "--package=oviiirs_archive"
+                ],
+                "filter": {
+                    "name": "oviiirs_archive",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'oviiirs_archive'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=oviiirs_archive",
+                    "--package=oviiirs_archive"
+                ],
+                "filter": {
+                    "name": "oviiirs_archive",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
