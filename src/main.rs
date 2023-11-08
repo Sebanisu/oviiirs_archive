@@ -16,21 +16,15 @@ enum DirectorySelection {
 fn main() -> io::Result<()> {
     let config_path = "config.toml";
 
-    if !Path::new(config_path).exists() {
-        create_default_config(config_path)?;
-    }
-
     let contents = read_file_contents(config_path)?;
 
     let mut config = parse_toml_contents(&contents, config_path)?;
 
+    let mut locations = config.get("locations")?;
+
     let mut directories = extract_directories(&config)?;
 
-    let user_choice = if directories.is_empty() {
-        handle_empty_directories()
-    } else {
-        display_directory_info(&directories, &extract_chosen_directory(&config))
-    };
+    let user_choice = display_directory_info(&directories, &extract_chosen_directory(&config));
 
     let chosen_directory = match user_choice {
         DirectorySelection::NewDirectory(new_dir) => {
@@ -92,20 +86,10 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn create_default_config(config_path: &str) -> io::Result<()> {
-    let default_config = r#"
-    directories = []
-    "#;
-
-    fs::write(config_path, default_config)?;
-    println!("config.toml created with default configuration.");
-    Ok(())
-}
-
 fn read_file_contents(config_path: &str) -> io::Result<String> {
     fs::read_to_string(config_path).or_else(|_| {
         eprintln!("Could not read file `{}`", config_path);
-        exit(1);
+        Ok(String::new()) // Return an empty string in case of an error
     })
 }
 
@@ -150,41 +134,21 @@ fn extract_chosen_directory(config: &Value) -> Option<String> {
     }
 }
 
-fn handle_empty_directories() -> DirectorySelection {
-    println!("\nNo directories are configured.\nOptions:");
-    println!("  - Press Enter to Exit.");
-    println!("  - Please enter a new directory path:");
-    let mut new_dir_path = String::new();
-    io::stdin()
-        .read_line(&mut new_dir_path)
-        .expect("Failed to read user input");
-    let new_dir_path = new_dir_path.trim();
-    loop {
-        if !new_dir_path.is_empty() {
-            let dir_exists = Path::new(new_dir_path).exists();
-
-            if dir_exists {
-                return DirectorySelection::NewDirectory(new_dir_path.to_string());
-            } else {
-                println!("The entered directory does not exist.");
-            }
-        } else {
-            return DirectorySelection::Exit;
-        }
-    }
-}
-
 fn display_directory_info(
     directories: &Vec<String>,
     previously_chosen_directory: &Option<String>,
 ) -> DirectorySelection {
     loop {
         println!("\nSaved FF8 Directories:\n");
-
-        for (index, dir_path) in directories.iter().enumerate() {
-            let dir_exists = Path::new(dir_path).is_dir();
-            if dir_exists {
-                println!("{:>6}: {}", index + 1, dir_path);
+        if directories.is_empty() {
+            println!("    None...");
+        }
+        else {       
+            for (index, dir_path) in directories.iter().enumerate() {
+                let dir_exists = Path::new(dir_path).is_dir();
+                if dir_exists {
+                    println!(" {:>3}: {}", index + 1, dir_path);
+                }
             }
         }
 
@@ -218,18 +182,11 @@ fn display_directory_info(
 
         user_input = user_input.trim().to_string();
 
-        let is_condition_met = || {
-            let user_empty = user_input.is_empty();
-
-            if !user_empty {
-                println!("User input is not empty.");
-            }
-
-            if !has_chosen_directory {
+        let is_condition_met = || {            
+            if user_input.is_empty() && !has_chosen_directory {
                 println!("No previously chosen directory is available.");
             }
-
-            user_empty && has_chosen_directory
+            user_input.is_empty() && has_chosen_directory
         };
 
         if is_condition_met() {
