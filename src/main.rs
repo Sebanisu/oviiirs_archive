@@ -1,11 +1,29 @@
+extern crate bincode;
 extern crate toml;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ZZZEntry {
+    string_length: u32,
+    string_data: String,
+    file_offset: u64,
+    file_size: u32,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ZZZHeader {
+    file_path: String,
+    count: u32,
+    entries: Vec<ZZZEntry>,
+}
 
 // Top level struct to hold the TOML data.
 #[derive(Serialize, Deserialize, Default)]
@@ -42,25 +60,9 @@ enum DirectorySelection {
 }
 
 fn main() -> io::Result<()> {
-    let config_path = "config.toml";
+    let config_path: String = "config.toml".to_string();
 
-    let contents = read_file_contents(config_path)?;
-
-    //let mut config = parse_toml_contents(&contents, config_path)?;
-
-    let mut config: Config = match toml::from_str::<Config>(&contents) {
-        // If successful, return data as `Data` struct.
-        // `data` is a local variable.
-        Ok(data) => data,
-        // Handle the `error` case.
-        Err(_) => {
-            // // Write `msg` to `stderr`.
-            // eprintln!("Unable to load data from `{}`", config_path);
-            // // Exit the program with exit code `1`.
-            // exit(1);
-            Default::default()
-        }
-    };
+    let mut config = load_config_from_file(&config_path)?;
 
     config.locations.ensure_chosen_directory_in_directories();
 
@@ -68,7 +70,7 @@ fn main() -> io::Result<()> {
 
     let user_choice = display_directory_info(&directories, &config.locations.chosen_directory);
 
-    let chosen_directory = match user_choice {
+    config.locations.chosen_directory = match user_choice {
         DirectorySelection::NewDirectory(new_dir) => {
             // Handle the case when a new directory is chosen
             println!("New directory selected: {}", new_dir);
@@ -96,18 +98,50 @@ fn main() -> io::Result<()> {
         }
     };
 
-    config.locations.chosen_directory = chosen_directory;
+    save_config(&config, &config_path)?;
 
-    save_config(&config, config_path)?;
+    match process_files_in_directory(&config.locations.chosen_directory) {
+        Ok(zzz_files) => {
+            for zzz_file in zzz_files {
+                match read_data_from_file(&zzz_file) {
+                    Ok(data) => {
+                        let tmp_zzz_filename = generate_zzz_filename(&zzz_file);
+                        save_config(&data, &tmp_zzz_filename)?;
+                    }
+                    Err(err) => {
+                        eprintln!("Error: {:?}", err);
+                    }
+                }
+            }
+        }
 
+        Err(err) => {
+            eprintln!("Error: {:?}", err);
+        }
+    }
     Ok(())
 }
 
-fn read_file_contents(config_path: &str) -> io::Result<String> {
+fn read_file_contents(config_path: &String) -> io::Result<String> {
     fs::read_to_string(config_path).or_else(|_| {
         eprintln!("Could not read file `{}`", config_path);
         Ok(String::new()) // Return an empty string in case of an error
     })
+}
+
+fn load_config_from_file(config_path: &String) -> io::Result<Config> {
+    // Read the contents of the configuration file
+    let contents = read_file_contents(&config_path)?;
+
+    // Attempt to parse the TOML content into a Config structure
+    match toml::from_str::<Config>(&contents) {
+        Ok(data) => Ok(data),
+        Err(_) => {
+            // Handle the error case, you can choose to return a default Config or propagate the error.
+            // For example, return a default Config:
+            Ok(Default::default())
+        }
+    }
 }
 
 fn filter_valid_directories(dirs: &Vec<String>) -> Vec<String> {
@@ -221,7 +255,10 @@ fn display_directory_info(
     }
 }
 
-fn save_config(config: &Config, filename: &str) -> Result<(), std::io::Error> {
+fn save_config<T>(config: &T, filename: &String) -> Result<(), std::io::Error>
+where
+    T: Serialize,
+{
     let config_str = toml::to_string(config).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
@@ -241,4 +278,79 @@ fn save_config(config: &Config, filename: &str) -> Result<(), std::io::Error> {
     buf_writer.write_all(config_str.as_bytes())?;
     buf_writer.flush()?;
     Ok(())
+}
+
+fn process_files_in_directory(directory: &String) -> io::Result<Vec<String>> {
+    // List files in the specified directory.
+    let entries = fs::read_dir(directory)?;
+    let mut files = Vec::<String>::new();
+    // Iterate through the directory entries and filter files with ".zzz" extension.
+    for entry in entries {
+        let entry = entry?;
+
+        if let Some(file_name) = entry.file_name().to_str() {
+            if file_name.ends_with(".zzz") {
+                // You can perform actions on the ".zzz" files here.
+                println!("Found a .zzz file: {}", file_name);
+                if let Some(file_path) = entry.path().to_str() {
+                    files.push(file_path.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(files)
+}
+
+fn read_data_from_file(file_path: &String) -> io::Result<ZZZHeader> {
+    let mut file = File::open(file_path)?;
+
+    // Read the 32-bit count from the file
+    let mut count_bytes = [0u8; 4];
+    file.read_exact(&mut count_bytes)?;
+    let count = u32::from_le_bytes(count_bytes);
+
+    // Deserialize the entries
+    let mut entries = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        let string_length_bytes: [u8; 4] =
+            bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
+        let string_length = u32::from_le_bytes(string_length_bytes);
+
+        let string_data_bytes = read_bytes(&mut file, string_length as usize)?;
+        let string_data = String::from_utf8(string_data_bytes).unwrap();
+
+        let file_offset = bincode::deserialize(&read_bytes(&mut file, 8)?).unwrap();
+        let file_size_bytes: [u8; 4] = bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
+        let file_size = u32::from_le_bytes(file_size_bytes);
+
+        entries.push(ZZZEntry {
+            string_length,
+            string_data,
+            file_offset,
+            file_size,
+        });
+    }
+
+    Ok(ZZZHeader {
+        file_path: file_path.to_string(),
+        count,
+        entries,
+    })
+}
+
+fn read_bytes(file: &mut File, length: usize) -> io::Result<Vec<u8>> {
+    let mut buffer = vec![0; length];
+    file.read_exact(&mut buffer)?;
+    Ok(buffer)
+}
+
+fn generate_zzz_filename(path: &String) -> String {
+    let base_name = Path::new(path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("default");
+
+    let zzz_filename = format!("{}_zzz.toml", base_name);
+    zzz_filename
 }

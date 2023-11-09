@@ -1,0 +1,1928 @@
+file_path = "/mnt/d/SteamLibrary/steamapps/common/FINAL FANTASY VIII Remastered/other.zzz"
+count = 321
+
+[[entries]]
+string_length = 33
+string_data = 'data\lang-jp\movies\disc03_05.cam'
+file_offset = 14496
+file_size = 134868
+
+[[entries]]
+string_length = 34
+string_data = 'data\lang-jp\movies\disc03_05h.avi'
+file_offset = 149364
+file_size = 57542418
+
+[[entries]]
+string_length = 33
+string_data = 'data\lang-jp\movies\disc03_06.cam'
+file_offset = 57691782
+file_size = 312012
+
+[[entries]]
+string_length = 34
+string_data = 'data\lang-jp\movies\disc03_06h.avi'
+file_offset = 58003794
+file_size = 138797683
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_00.cam'
+file_offset = 196801477
+file_size = 14352
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_00h.avi'
+file_offset = 196815829
+file_size = 6588690
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_01.cam'
+file_offset = 203404519
+file_size = 8764
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_01h.avi'
+file_offset = 203413283
+file_size = 3800976
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_02.cam'
+file_offset = 207214259
+file_size = 7092
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_02h.avi'
+file_offset = 207221351
+file_size = 3140176
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_03.cam'
+file_offset = 210361527
+file_size = 48408
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_03h.avi'
+file_offset = 210409935
+file_size = 22650909
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_04.cam'
+file_offset = 233060844
+file_size = 9468
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_04h.avi'
+file_offset = 233070312
+file_size = 4251019
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_05.cam'
+file_offset = 237321331
+file_size = 49024
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_05h.avi'
+file_offset = 237370355
+file_size = 21149910
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_06.cam'
+file_offset = 258520265
+file_size = 1812
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_06h.avi'
+file_offset = 258522077
+file_size = 828067
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_07.cam'
+file_offset = 259350144
+file_size = 47704
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_07h.avi'
+file_offset = 259397848
+file_size = 21630770
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_08.cam'
+file_offset = 281028618
+file_size = 14264
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_08h.avi'
+file_offset = 281042882
+file_size = 6402844
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_09.cam'
+file_offset = 287445726
+file_size = 61212
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_09h.avi'
+file_offset = 287506938
+file_size = 26271596
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_10.cam'
+file_offset = 313778534
+file_size = 17300
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_10h.avi'
+file_offset = 313795834
+file_size = 7668533
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_11.cam'
+file_offset = 321464367
+file_size = 20468
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_11h.avi'
+file_offset = 321484835
+file_size = 8810598
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_12.cam'
+file_offset = 330295433
+file_size = 1988
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_12h.avi'
+file_offset = 330297421
+file_size = 849613
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_13.cam'
+file_offset = 331147034
+file_size = 668
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_13h.avi'
+file_offset = 331147702
+file_size = 343627
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_14.cam'
+file_offset = 331491329
+file_size = 15848
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_14h.avi'
+file_offset = 331507177
+file_size = 7216627
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_15.cam'
+file_offset = 338723804
+file_size = 13208
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_15h.avi'
+file_offset = 338737012
+file_size = 6101945
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_16.cam'
+file_offset = 344838957
+file_size = 6608
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_16h.avi'
+file_offset = 344845565
+file_size = 3007628
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_17.cam'
+file_offset = 347853193
+file_size = 39168
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_17h.avi'
+file_offset = 347892361
+file_size = 17208124
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_18.cam'
+file_offset = 365100485
+file_size = 8412
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_18h.avi'
+file_offset = 365108897
+file_size = 3748650
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_19.cam'
+file_offset = 368857547
+file_size = 5332
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_19h.avi'
+file_offset = 368862879
+file_size = 2302319
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_20.cam'
+file_offset = 371165198
+file_size = 17652
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_20h.avi'
+file_offset = 371182850
+file_size = 8353446
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_21.cam'
+file_offset = 379536296
+file_size = 36484
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_21h.avi'
+file_offset = 379572780
+file_size = 17357993
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_22.cam'
+file_offset = 396930773
+file_size = 6212
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_22h.avi'
+file_offset = 396936985
+file_size = 2877770
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_23.cam'
+file_offset = 399814755
+file_size = 24208
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_23h.avi'
+file_offset = 399838963
+file_size = 11369414
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_24.cam'
+file_offset = 411208377
+file_size = 25308
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_24h.avi'
+file_offset = 411233685
+file_size = 11620625
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_25.cam'
+file_offset = 422854310
+file_size = 5728
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_25h.avi'
+file_offset = 422860038
+file_size = 2596035
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_26.cam'
+file_offset = 425456073
+file_size = 4452
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_26h.avi'
+file_offset = 425460525
+file_size = 1841714
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_27.cam'
+file_offset = 427302239
+file_size = 13472
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_27h.avi'
+file_offset = 427315711
+file_size = 5826659
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_28.cam'
+file_offset = 433142370
+file_size = 19016
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_28h.avi'
+file_offset = 433161386
+file_size = 8742783
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_29.cam'
+file_offset = 441904169
+file_size = 33008
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_29h.avi'
+file_offset = 441937177
+file_size = 11937967
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc00_30.cam'
+file_offset = 453875144
+file_size = 127476
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc00_30h.avi'
+file_offset = 454002620
+file_size = 55525064
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_00.cam'
+file_offset = 509527684
+file_size = 19940
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_00h.avi'
+file_offset = 509547624
+file_size = 9419735
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_01.cam'
+file_offset = 518967359
+file_size = 12240
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_01h.avi'
+file_offset = 518979599
+file_size = 5427274
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_02.cam'
+file_offset = 524406873
+file_size = 14528
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_02h.avi'
+file_offset = 524421401
+file_size = 6500189
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_03.cam'
+file_offset = 530921590
+file_size = 19808
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_03h.avi'
+file_offset = 530941398
+file_size = 7023652
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_04.cam'
+file_offset = 537965050
+file_size = 7400
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_04h.avi'
+file_offset = 537972450
+file_size = 3179983
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_05.cam'
+file_offset = 541152433
+file_size = 9644
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_05h.avi'
+file_offset = 541162077
+file_size = 4290693
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_06.cam'
+file_offset = 545452770
+file_size = 4584
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_06h.avi'
+file_offset = 545457354
+file_size = 2087578
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_07.cam'
+file_offset = 547544932
+file_size = 7048
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_07h.avi'
+file_offset = 547551980
+file_size = 3031183
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_08.cam'
+file_offset = 550583163
+file_size = 16772
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_08h.avi'
+file_offset = 550599935
+file_size = 8059308
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_09.cam'
+file_offset = 558659243
+file_size = 9952
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_09h.avi'
+file_offset = 558669195
+file_size = 4811251
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_10.cam'
+file_offset = 563480446
+file_size = 18312
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_10h.avi'
+file_offset = 563498758
+file_size = 8143479
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_11.cam'
+file_offset = 571642237
+file_size = 26540
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_11h.avi'
+file_offset = 571668777
+file_size = 16491107
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_12.cam'
+file_offset = 588159884
+file_size = 14748
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_12h.avi'
+file_offset = 588174632
+file_size = 6494550
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_13.cam'
+file_offset = 594669182
+file_size = 16772
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_13h.avi'
+file_offset = 594685954
+file_size = 8028066
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_14.cam'
+file_offset = 602714020
+file_size = 23372
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_14h.avi'
+file_offset = 602737392
+file_size = 10937015
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_15.cam'
+file_offset = 613674407
+file_size = 5288
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_15h.avi'
+file_offset = 613679695
+file_size = 2320292
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_16.cam'
+file_offset = 615999987
+file_size = 6564
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_16h.avi'
+file_offset = 616006551
+file_size = 2947171
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_17.cam'
+file_offset = 618953722
+file_size = 6608
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_17h.avi'
+file_offset = 618960330
+file_size = 2857044
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_18.cam'
+file_offset = 621817374
+file_size = 11228
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_18h.avi'
+file_offset = 621828602
+file_size = 5014081
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_19.cam'
+file_offset = 626842683
+file_size = 18840
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_19h.avi'
+file_offset = 626861523
+file_size = 8769452
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_20.cam'
+file_offset = 635630975
+file_size = 6608
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_20h.avi'
+file_offset = 635637583
+file_size = 3055745
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_21.cam'
+file_offset = 638693328
+file_size = 3308
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_21h.avi'
+file_offset = 638696636
+file_size = 1499834
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_22.cam'
+file_offset = 640196470
+file_size = 5288
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_22h.avi'
+file_offset = 640201758
+file_size = 2385343
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_23.cam'
+file_offset = 642587101
+file_size = 12548
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_23h.avi'
+file_offset = 642599649
+file_size = 5929254
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_24.cam'
+file_offset = 648528903
+file_size = 14528
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_24h.avi'
+file_offset = 648543431
+file_size = 6168787
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_25.cam'
+file_offset = 654712218
+file_size = 13208
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_25h.avi'
+file_offset = 654725426
+file_size = 6009137
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_26.cam'
+file_offset = 660734563
+file_size = 5288
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_26h.avi'
+file_offset = 660739851
+file_size = 2348693
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_27.cam'
+file_offset = 663088544
+file_size = 3308
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_27h.avi'
+file_offset = 663091852
+file_size = 1431452
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_28.cam'
+file_offset = 664523304
+file_size = 5288
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_28h.avi'
+file_offset = 664528592
+file_size = 2342490
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_29.cam'
+file_offset = 666871082
+file_size = 30456
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_29h.avi'
+file_offset = 666901538
+file_size = 13490400
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_30.cam'
+file_offset = 680391938
+file_size = 5288
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_30h.avi'
+file_offset = 680397226
+file_size = 2354810
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_31.cam'
+file_offset = 682752036
+file_size = 5948
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_31h.avi'
+file_offset = 682757984
+file_size = 2713825
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_32.cam'
+file_offset = 685471809
+file_size = 14396
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_32h.avi'
+file_offset = 685486205
+file_size = 7429337
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc01_33.cam'
+file_offset = 692915542
+file_size = 52192
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc01_33h.avi'
+file_offset = 692967734
+file_size = 23833862
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_00.cam'
+file_offset = 716801596
+file_size = 8676
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_00h.avi'
+file_offset = 716810272
+file_size = 3931471
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_01.cam'
+file_offset = 720741743
+file_size = 20776
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_01h.avi'
+file_offset = 720762519
+file_size = 7865615
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_02.cam'
+file_offset = 728628134
+file_size = 4628
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_02h.avi'
+file_offset = 728632762
+file_size = 1974169
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_03.cam'
+file_offset = 730606931
+file_size = 4628
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_03h.avi'
+file_offset = 730611559
+file_size = 1928536
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_04.cam'
+file_offset = 732540095
+file_size = 4672
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_04h.avi'
+file_offset = 732544767
+file_size = 2041015
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_05.cam'
+file_offset = 734585782
+file_size = 4672
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_05h.avi'
+file_offset = 734590454
+file_size = 2037408
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_06.cam'
+file_offset = 736627862
+file_size = 4848
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_06h.avi'
+file_offset = 736632710
+file_size = 2150595
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_07.cam'
+file_offset = 738783305
+file_size = 13208
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_07h.avi'
+file_offset = 738796513
+file_size = 6254353
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_08.cam'
+file_offset = 745050866
+file_size = 3308
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_08h.avi'
+file_offset = 745054174
+file_size = 1403761
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_09.cam'
+file_offset = 746457935
+file_size = 32040
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_09h.avi'
+file_offset = 746489975
+file_size = 14062646
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_10.cam'
+file_offset = 760552621
+file_size = 5288
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_10h.avi'
+file_offset = 760557909
+file_size = 2169842
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_11.cam'
+file_offset = 762727751
+file_size = 13868
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_11h.avi'
+file_offset = 762741619
+file_size = 6449244
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_12.cam'
+file_offset = 769190863
+file_size = 9952
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_12h.avi'
+file_offset = 769200815
+file_size = 4005930
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_13.cam'
+file_offset = 773206745
+file_size = 26892
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_13h.avi'
+file_offset = 773233637
+file_size = 8996298
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_14.cam'
+file_offset = 782229935
+file_size = 4628
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_14h.avi'
+file_offset = 782234563
+file_size = 2110337
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_15.cam'
+file_offset = 784344900
+file_size = 11228
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_15h.avi'
+file_offset = 784356128
+file_size = 4860991
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_16.cam'
+file_offset = 789217119
+file_size = 10260
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_16h.avi'
+file_offset = 789227379
+file_size = 4539525
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_17.cam'
+file_offset = 793766904
+file_size = 3968
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_17h.avi'
+file_offset = 793770872
+file_size = 1756124
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_18.cam'
+file_offset = 795526996
+file_size = 3968
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_18h.avi'
+file_offset = 795530964
+file_size = 1650069
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_19.cam'
+file_offset = 797181033
+file_size = 7136
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_19h.avi'
+file_offset = 797188169
+file_size = 2773952
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_20.cam'
+file_offset = 799962121
+file_size = 12108
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_20h.avi'
+file_offset = 799974229
+file_size = 5540110
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_21.cam'
+file_offset = 805514339
+file_size = 12328
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_21h.avi'
+file_offset = 805526667
+file_size = 4195121
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_22.cam'
+file_offset = 809721788
+file_size = 3968
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_22h.avi'
+file_offset = 809725756
+file_size = 1797281
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_23.cam'
+file_offset = 811523037
+file_size = 8808
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_23h.avi'
+file_offset = 811531845
+file_size = 3818488
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_24.cam'
+file_offset = 815350333
+file_size = 26408
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_24h.avi'
+file_offset = 815376741
+file_size = 11791189
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_25.cam'
+file_offset = 827167930
+file_size = 1328
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_25h.avi'
+file_offset = 827169258
+file_size = 438371
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_26.cam'
+file_offset = 827607629
+file_size = 18048
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_26h.avi'
+file_offset = 827625677
+file_size = 7148121
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_27.cam'
+file_offset = 834773798
+file_size = 5728
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_27h.avi'
+file_offset = 834779526
+file_size = 2623347
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_28.cam'
+file_offset = 837402873
+file_size = 16552
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_28h.avi'
+file_offset = 837419425
+file_size = 6908702
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_29.cam'
+file_offset = 844328127
+file_size = 17388
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_29h.avi'
+file_offset = 844345515
+file_size = 7637906
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_30.cam'
+file_offset = 851983421
+file_size = 27508
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_30h.avi'
+file_offset = 852010929
+file_size = 13403099
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc02_31.cam'
+file_offset = 865414028
+file_size = 43788
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc02_31h.avi'
+file_offset = 865457816
+file_size = 19982959
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_00.cam'
+file_offset = 885440775
+file_size = 17168
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_00h.avi'
+file_offset = 885457943
+file_size = 8147264
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_01.cam'
+file_offset = 893605207
+file_size = 55448
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_01h.avi'
+file_offset = 893660655
+file_size = 24077265
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_02.cam'
+file_offset = 917737920
+file_size = 12548
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_02h.avi'
+file_offset = 917750468
+file_size = 5353970
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_03.cam'
+file_offset = 923104438
+file_size = 9908
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_03h.avi'
+file_offset = 923114346
+file_size = 4416795
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_04.cam'
+file_offset = 927531141
+file_size = 191320
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_04h.avi'
+file_offset = 927722461
+file_size = 80003995
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_05.cam'
+file_offset = 1007726456
+file_size = 134868
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_05h.avi'
+file_offset = 1007861324
+file_size = 57621070
+
+[[entries]]
+string_length = 25
+string_data = 'data\movies\disc03_06.cam'
+file_offset = 1065482394
+file_size = 312012
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc03_06h.avi'
+file_offset = 1065794406
+file_size = 138478980
+
+[[entries]]
+string_length = 26
+string_data = 'data\movies\disc04_00h.avi'
+file_offset = 1204273386
+file_size = 420634
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\000s-lose.ogg'
+file_offset = 1204694020
+file_size = 1308394
+
+[[entries]]
+string_length = 34
+string_data = 'data\music\dmusic\ogg\001s-win.ogg'
+file_offset = 1206002414
+file_size = 762829
+
+[[entries]]
+string_length = 34
+string_data = 'data\music\dmusic\ogg\004s-run.ogg'
+file_offset = 1206765243
+file_size = 3270917
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\005s-battle.ogg'
+file_offset = 1210036160
+file_size = 1778078
+
+[[entries]]
+string_length = 34
+string_data = 'data\music\dmusic\ogg\007s-end.ogg'
+file_offset = 1211814238
+file_size = 1325168
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\008s-antena.ogg'
+file_offset = 1213139406
+file_size = 1320883
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\009s-waiting.ogg'
+file_offset = 1214460289
+file_size = 1658426
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\012s-kani.ogg'
+file_offset = 1216118715
+file_size = 1813933
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\013s-battle2.ogg'
+file_offset = 1217932648
+file_size = 2228948
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\014s-parade2.ogg'
+file_offset = 1220161596
+file_size = 3987782
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\015s-fuan2.ogg'
+file_offset = 1224149378
+file_size = 2275198
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\016s-march2.ogg'
+file_offset = 1226424576
+file_size = 2798082
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\017s-joriku.ogg'
+file_offset = 1229222658
+file_size = 2849863
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\018s-julia.ogg'
+file_offset = 1232072521
+file_size = 3166534
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\019s-waltz.ogg'
+file_offset = 1235239055
+file_size = 1557399
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\020s-friend.ogg'
+file_offset = 1236796454
+file_size = 3913326
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\021s-dangeon.ogg'
+file_offset = 1240709780
+file_size = 2132884
+
+[[entries]]
+string_length = 39
+string_data = 'data\music\dmusic\ogg\022s-pianosol.ogg'
+file_offset = 1242842664
+file_size = 1299866
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\023s-parade.ogg'
+file_offset = 1244142530
+file_size = 3319764
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\024s-march1.ogg'
+file_offset = 1247462294
+file_size = 2378238
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\025s-himitsu.ogg'
+file_offset = 1249840532
+file_size = 3182700
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\026s-garden.ogg'
+file_offset = 1253023232
+file_size = 1934826
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\027s-fuan.ogg'
+file_offset = 1254958058
+file_size = 1471879
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\028s-polka2.ogg'
+file_offset = 1256429937
+file_size = 2803088
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\029s-anthem.ogg'
+file_offset = 1259233025
+file_size = 1516536
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\035s-m7f5.ogg'
+file_offset = 1260749561
+file_size = 3321222
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\036s-majo.ogg'
+file_offset = 1264070783
+file_size = 1902996
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\041s-field.ogg'
+file_offset = 1265973779
+file_size = 2292343
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\042s-guitar.ogg'
+file_offset = 1268266122
+file_size = 1701730
+
+[[entries]]
+string_length = 42
+string_data = 'data\music\dmusic\ogg\043a-concert-tap.ogg'
+file_offset = 1269967852
+file_size = 3075393
+
+[[entries]]
+string_length = 44
+string_data = 'data\music\dmusic\ogg\043b-concert-flute.ogg'
+file_offset = 1273043245
+file_size = 2205875
+
+[[entries]]
+string_length = 45
+string_data = 'data\music\dmusic\ogg\043c-concert-fiddle.ogg'
+file_offset = 1275249120
+file_size = 2755757
+
+[[entries]]
+string_length = 46
+string_data = 'data\music\dmusic\ogg\043d-concert-aguitar.ogg'
+file_offset = 1278004877
+file_size = 2748295
+
+[[entries]]
+string_length = 42
+string_data = 'data\music\dmusic\ogg\043e-concert-sax.ogg'
+file_offset = 1280753172
+file_size = 1535373
+
+[[entries]]
+string_length = 44
+string_data = 'data\music\dmusic\ogg\043f-concert-piano.ogg'
+file_offset = 1282288545
+file_size = 1003644
+
+[[entries]]
+string_length = 46
+string_data = 'data\music\dmusic\ogg\043g-concert-eguitar.ogg'
+file_offset = 1283292189
+file_size = 1146466
+
+[[entries]]
+string_length = 44
+string_data = 'data\music\dmusic\ogg\043h-concert-ebass.ogg'
+file_offset = 1284438655
+file_size = 972366
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\043s-concert.ogg'
+file_offset = 1285411021
+file_size = 2777584
+
+[[entries]]
+string_length = 39
+string_data = 'data\music\dmusic\ogg\046s-resistan.ogg'
+file_offset = 1288188605
+file_size = 1781580
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\047s-kaiso.ogg'
+file_offset = 1289970185
+file_size = 1983363
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\048s-horizon.ogg'
+file_offset = 1291953548
+file_size = 2236797
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\049s-master.ogg'
+file_offset = 1294190345
+file_size = 3135745
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\051s-rinoa.ogg'
+file_offset = 1297326090
+file_size = 1993066
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\052s-travia.ogg'
+file_offset = 1299319156
+file_size = 2044922
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\053s-antena2.ogg'
+file_offset = 1301364078
+file_size = 921412
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\054s-truth.ogg'
+file_offset = 1302285490
+file_size = 2100680
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\055s-jail.ogg'
+file_offset = 1304386170
+file_size = 2136236
+
+[[entries]]
+string_length = 39
+string_data = 'data\music\dmusic\ogg\056s-gargarde.ogg'
+file_offset = 1306522406
+file_size = 2709789
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\057s-timber.ogg'
+file_offset = 1309232195
+file_size = 3214340
+
+[[entries]]
+string_length = 39
+string_data = 'data\music\dmusic\ogg\058s-garbadia.ogg'
+file_offset = 1312446535
+file_size = 2575429
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\059s-pinch.ogg'
+file_offset = 1315021964
+file_size = 1806101
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\060s-scene1.ogg'
+file_offset = 1316828065
+file_size = 807107
+
+[[entries]]
+string_length = 34
+string_data = 'data\music\dmusic\ogg\061s-pub.ogg'
+file_offset = 1317635172
+file_size = 1300618
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\062s-bat3.ogg'
+file_offset = 1318935790
+file_size = 1856564
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\063s-stage.ogg'
+file_offset = 1320792354
+file_size = 3076102
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\064s-choco.ogg'
+file_offset = 1323868456
+file_size = 389252
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\065s-white.ogg'
+file_offset = 1324257708
+file_size = 1673104
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\066s-majomv.ogg'
+file_offset = 1325930812
+file_size = 1144337
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\067s-musho.ogg'
+file_offset = 1327075149
+file_size = 2839236
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\068s-missile.ogg'
+file_offset = 1329914385
+file_size = 635302
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\069s-enzetu.ogg'
+file_offset = 1330549687
+file_size = 1672817
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\070s-card.ogg'
+file_offset = 1332222504
+file_size = 1916700
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\071s-gomon.ogg'
+file_offset = 1334139204
+file_size = 2321626
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\072s-soto.ogg'
+file_offset = 1336460830
+file_size = 731137
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\073s-majobat.ogg'
+file_offset = 1337191967
+file_size = 2778003
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\075s-gar3.ogg'
+file_offset = 1339969970
+file_size = 1489441
+
+[[entries]]
+string_length = 39
+string_data = 'data\music\dmusic\ogg\076s-bossbat2.ogg'
+file_offset = 1341459411
+file_size = 4343780
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\077s-lasdun.ogg'
+file_offset = 1345803191
+file_size = 4880505
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\078s-gafly.ogg'
+file_offset = 1350683696
+file_size = 4896016
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\079s-demo.ogg'
+file_offset = 1355579712
+file_size = 3804223
+
+[[entries]]
+string_length = 34
+string_data = 'data\music\dmusic\ogg\080s-spy.ogg'
+file_offset = 1359383935
+file_size = 3874243
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\081s-mods.ogg'
+file_offset = 1363258178
+file_size = 1951801
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\082s-salt.ogg'
+file_offset = 1365209979
+file_size = 2556991
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\083s-alien.ogg'
+file_offset = 1367766970
+file_size = 2488291
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\084s-sekichu.ogg'
+file_offset = 1370255261
+file_size = 3035085
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\085s-esta.ogg'
+file_offset = 1373290346
+file_size = 3802996
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\086s-moonmv.ogg'
+file_offset = 1377093342
+file_size = 1218027
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\089s-hikutei.ogg'
+file_offset = 1378311369
+file_size = 2904807
+
+[[entries]]
+string_length = 39
+string_data = 'data\music\dmusic\ogg\090s-bossbat1.ogg'
+file_offset = 1381216176
+file_size = 4601181
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\091s-rag1.ogg'
+file_offset = 1385817357
+file_size = 1383953
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\dmusic\ogg\092s-rag2.ogg'
+file_offset = 1387201310
+file_size = 969098
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\dmusic\ogg\093s-lasboss.ogg'
+file_offset = 1388170408
+file_size = 5859451
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\096s-keisho.ogg'
+file_offset = 1394029859
+file_size = 3584077
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\097s-ashuku.ogg'
+file_offset = 1397613936
+file_size = 4229780
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\dmusic\ogg\099-joriku2.ogg'
+file_offset = 1401843716
+file_size = 2681491
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\chocoworld.ogg'
+file_offset = 1404525207
+file_size = 749825
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\dmusic\ogg\eyes_on_me.ogg'
+file_offset = 1405275032
+file_size = 6448080
+
+[[entries]]
+string_length = 32
+string_data = 'data\music\stream\003-combat.wav'
+file_offset = 1411723112
+file_size = 2252516
+
+[[entries]]
+string_length = 32
+string_data = 'data\music\stream\006-funsui.wav'
+file_offset = 1413975628
+file_size = 817264
+
+[[entries]]
+string_length = 30
+string_data = 'data\music\stream\010-ante.wav'
+file_offset = 1414792892
+file_size = 346852
+
+[[entries]]
+string_length = 30
+string_data = 'data\music\stream\011-wind.wav'
+file_offset = 1415139744
+file_size = 1695932
+
+[[entries]]
+string_length = 37
+string_data = 'data\music\stream\030-flangchorus.wav'
+file_offset = 1416835676
+file_size = 4786840
+
+[[entries]]
+string_length = 35
+string_data = 'data\music\stream\031-dubchorus.wav'
+file_offset = 1421622516
+file_size = 1888600
+
+[[entries]]
+string_length = 36
+string_data = 'data\music\stream\032-solochorus.wav'
+file_offset = 1423511116
+file_size = 1886296
+
+[[entries]]
+string_length = 38
+string_data = 'data\music\stream\033-femalechorus.wav'
+file_offset = 1425397412
+file_size = 8602240
+
+[[entries]]
+string_length = 32
+string_data = 'data\music\stream\034-chorus.wav'
+file_offset = 1433999652
+file_size = 7859648
+
+[[entries]]
+string_length = 30
+string_data = 'data\music\stream\037-reet.wav'
+file_offset = 1441859300
+file_size = 563324
+
+[[entries]]
+string_length = 30
+string_data = 'data\music\stream\038-soyo.wav'
+file_offset = 1442422624
+file_size = 2650224
+
+[[entries]]
+string_length = 31
+string_data = 'data\music\stream\039-rouka.wav'
+file_offset = 1445072848
+file_size = 1777776
+
+[[entries]]
+string_length = 31
+string_data = 'data\music\stream\040-night.wav'
+file_offset = 1446850624
+file_size = 755824
+
+[[entries]]
+string_length = 29
+string_data = 'data\music\stream\044-sea.wav'
+file_offset = 1447606448
+file_size = 1773680
+
+[[entries]]
+string_length = 31
+string_data = 'data\music\stream\074-train.wav'
+file_offset = 1449380128
+file_size = 1007616
+
+[[entries]]
+string_length = 33
+string_data = 'data\music\stream\086-mdmotor.wav'
+file_offset = 1450387744
+file_size = 574324
+
+[[entries]]
+string_length = 33
+string_data = 'data\music\stream\087-mdmotor.wav'
+file_offset = 1450962068
+file_size = 574324
+
+[[entries]]
+string_length = 34
+string_data = 'data\music\stream\094-laswhite.wav'
+file_offset = 1451536392
+file_size = 1785904
+
+[[entries]]
+string_length = 31
+string_data = 'data\music\stream\095-lasbl.wav'
+file_offset = 1453322296
+file_size = 2965616
+
+[[entries]]
+string_length = 20
+string_data = 'data\sound\audio.dat'
+file_offset = 1456287912
+file_size = 105710271
+
+[[entries]]
+string_length = 20
+string_data = 'data\sound\audio.fmt'
+file_offset = 1561998183
+file_size = 155436
