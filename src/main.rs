@@ -53,6 +53,37 @@ impl fmt::Display for CompressionTypeT {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+enum LanguageCode {
+    None,
+    En,
+    De,
+    Es,
+    Fr,
+    It,
+    Jp, // Add more language codes as needed
+}
+
+impl Default for LanguageCode {
+    fn default() -> Self {
+        LanguageCode::None
+    }
+}
+
+impl fmt::Display for LanguageCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            LanguageCode::None => write!(f, "None"),
+            LanguageCode::En => write!(f, "en"),
+            LanguageCode::De => write!(f, "de"),
+            LanguageCode::Es => write!(f, "es"),
+            LanguageCode::Fr => write!(f, "fr"),
+            LanguageCode::It => write!(f, "it"),
+            LanguageCode::Jp => write!(f, "jp"),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct ZZZEntry {
     string_length: u32,
@@ -91,7 +122,9 @@ struct Locations {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-struct FIFLFSZZZ {
+struct FIFLFSZZZ {    
+    file_path: String,
+    language: LanguageCode,
     fi: Option<ZZZEntry>,
     fl: Option<ZZZEntry>,
     fs: Option<ZZZEntry>,
@@ -190,7 +223,7 @@ fn main() -> io::Result<()> {
                         let tmp_zzz_filename = generate_zzz_filename(&zzz_file);
                         save_config(&data, &tmp_zzz_filename)?;
                         // Iterate through ZZZEntry::string_data and filter for paths ending with ".fl"
-                        let groups = find_groups(data.entries.clone());
+                        let groups = find_groups(data);
                         for fiflfs in groups {
                             if let Some(fi_entry) = &fiflfs.fi {
                                 // This is a relative path ending with ".fl"
@@ -228,7 +261,7 @@ fn main() -> io::Result<()> {
 
                             if let Some(fs_entry) = &fiflfs.fs {
                                 // Do something with fs_entry
-                                println!("Found other file: {:?}", fs_entry.string_data);
+                                println!("Found fs file: {:?}", fs_entry.string_data);
                             }
                         }
                     }
@@ -593,7 +626,7 @@ fn generate_new_filename(path: &str) -> String {
     new_filename
 }
 
-fn find_groups(entries: Vec<ZZZEntry>) -> Vec<FIFLFSZZZ> {
+fn find_groups(entries: Vec<ZZZEntry>, &file_path:String) -> Vec<FIFLFSZZZ> {
     let mut groups: HashMap<String, FIFLFSZZZ> = HashMap::new();
 
     for entry in entries {
