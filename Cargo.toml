@@ -9,3 +9,4 @@ edition = "2021"
 toml = "0.8.8"
 serde = { version = "1.0.192", features = ["derive"] }
 bincode = "1.3.3"
+typed-path = "0.7"

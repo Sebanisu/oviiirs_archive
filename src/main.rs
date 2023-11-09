@@ -1,6 +1,7 @@
 extern crate bincode;
 extern crate toml;
 
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs;
@@ -13,8 +14,45 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::exit;
+use typed_path::Utf8WindowsPath;
+use typed_path::Utf8WindowsPathBuf;
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct FI {
+    uncompressed_size: u32,
+    offset: u32,
+    compression_type: CompressionTypeT,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+struct FIfile {
+    file_path: String,
+    entries: Vec<FI>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+enum CompressionTypeT {
+    None,
+    Lzss,
+    Lz4,
+}
+
+impl Default for CompressionTypeT {
+    fn default() -> Self {
+        CompressionTypeT::None
+    }
+}
+
+impl fmt::Display for CompressionTypeT {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CompressionTypeT::None => write!(f, "None"),
+            CompressionTypeT::Lzss => write!(f, "Lzss"),
+            CompressionTypeT::Lz4 => write!(f, "Lz4"),
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 struct ZZZEntry {
@@ -31,8 +69,9 @@ struct ZZZHeader {
     entries: Vec<ZZZEntry>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Default)]
 struct FL {
+    file_path: String,
     entries: Vec<String>,
 }
 
@@ -124,6 +163,35 @@ fn main() -> io::Result<()> {
                             if path.is_relative() && path.extension() == Some(OsStr::new("fl")) {
                                 // This is a relative path ending with ".fl"
                                 println!("Found .fl file: {:?}", path);
+                                match read_fl_entries_from_file(&entry, &zzz_file) {
+                                    Ok(fl) => {
+                                        // Successfully read entries
+                                        let fl_file_name =
+                                            generate_new_filename(&entry.string_data);
+                                        save_config(&fl, &fl_file_name)?;
+                                    }
+                                    Err(err) => {
+                                        // Handle the error
+                                        eprintln!("Error reading entries: {}", err);
+                                    }
+                                }
+                            } else if path.is_relative()
+                                && path.extension() == Some(OsStr::new("fi"))
+                            {
+                                // This is a relative path ending with ".fl"
+                                println!("Found .fi file: {:?}", path);
+                                match read_fi_entries_from_file(&entry, &zzz_file) {
+                                    Ok(fifile) => {
+                                        // Successfully read entries
+                                        let fi_file_name =
+                                            generate_new_filename(&entry.string_data);
+                                        save_config(&fifile, &fi_file_name)?;
+                                    }
+                                    Err(err) => {
+                                        // Handle the error
+                                        eprintln!("Error reading entries: {}", err);
+                                    }
+                                }
                             }
                         }
                     }
@@ -358,9 +426,9 @@ fn read_data_from_file(file_path: &String) -> io::Result<ZZZHeader> {
     })
 }
 
-fn read_bytes(file: &mut File, length: usize) -> io::Result<Vec<u8>> {
+fn read_bytes<R: Read>(reader: &mut R, length: usize) -> io::Result<Vec<u8>> {
     let mut buffer = vec![0; length];
-    file.read_exact(&mut buffer)?;
+    reader.read_exact(&mut buffer)?;
     Ok(buffer)
 }
 
@@ -374,7 +442,7 @@ fn generate_zzz_filename(path: &String) -> String {
     zzz_filename
 }
 
-fn read_entries_from_file(
+fn read_fl_entries_from_file(
     entry: &ZZZEntry,
     file_path: &str,
 ) -> Result<FL, Box<dyn std::error::Error>> {
@@ -385,40 +453,82 @@ fn read_entries_from_file(
     let mut reader = BufReader::new(file);
 
     // Create a FL struct to hold the entries
-    let mut fl = FL { entries: vec![] };
+    let mut fl = FL::default();
+
+    fl.file_path = entry.string_data.clone();
 
     // Seek to the file_offset
     reader.seek(SeekFrom::Start(entry.file_offset))?;
 
     // Read strings separated by newlines up to (file_offset + file_size)
     let mut buffer = String::new();
-    let mut bytes_read = 0;
+    let mut bytes_read = u64::default();
 
     while bytes_read < entry.file_size as u64 {
-        let bytes_to_read = (entry.file_size as u64 - bytes_read) as usize;
-        reader.read_line(&mut buffer)?;
+        match reader.read_line(&mut buffer) {
+            Ok(bytes_of_line) => {
+                // Update the number of bytes read
+                bytes_read += bytes_of_line as u64;
+            }
+            Err(error) => eprintln!("error: {error}"),
+        }
 
         // Add the read line to FL.entries
-        fl.entries.push(buffer.clone());
+        fl.entries.push(buffer.trim().to_string());
 
         // Clear the buffer for the next line
         buffer.clear();
-
-        // Update the number of bytes read
-        bytes_read += bytes_to_read as u64;
     }
 
     Ok(fl)
 }
 
+fn read_fi_entries_from_file(
+    entry: &ZZZEntry,
+    file_path: &str,
+) -> Result<FIfile, Box<dyn std::error::Error>> {
+    // Open the file specified by file_path for reading
+    let mut file = File::open(file_path)?;
+
+    // Seek to the file_offset
+    file.seek(SeekFrom::Start(entry.file_offset))?;
+
+    // Create a FIfile struct to hold the entries
+    let mut fifile = FIfile::default();
+    fifile.file_path = entry.string_data.clone();
+
+    // Read strings separated by newlines up to (file_offset + file_size)
+    let mut buffer = vec![0; entry.file_size as usize];
+    file.read_exact(&mut buffer)?;
+
+    let mut cursor = io::Cursor::new(buffer);
+
+    while cursor.position() < entry.file_size as u64 {
+        match bincode::deserialize::<FI>(&read_bytes(&mut cursor, std::mem::size_of::<FI>())?) {
+            Ok(fi) => {
+                fifile.entries.push(fi);
+            }
+            Err(error) => eprintln!("error: {error}"),
+        }
+        // Move the cursor back to the correct position after deserialization
+        //cursor.set_position(cursor.position() + (std::mem::size_of::<FI>() as u64));
+    }
+
+    Ok(fifile)
+}
+
 fn generate_new_filename(path: &str) -> String {
-    let path_buf = PathBuf::from(path);
-    let filename = path_buf.file_name().unwrap().to_str().unwrap();
+    let path_buf = Utf8WindowsPathBuf::from(path);
+    println!("{}", path_buf);
+    let filename = path_buf.file_name().unwrap().to_string();
+    println!("{}", filename);
     let parent = path_buf.parent();
-    let lang = parent.and_then(|p| {
-        if let Some(parent_str) = p.to_str() {
+    println!("{}", parent.unwrap_or(Utf8WindowsPath::new("")));
+    let lang: Option<String> = parent.and_then(|p| {
+        if let Some(dir_name) = p.file_name() {
+            let parent_str = dir_name.to_string();
             if parent_str.starts_with("lang-") {
-                Some(&parent_str[5..])
+                Some(parent_str[5..].to_string())
             } else {
                 None
             }
@@ -426,11 +536,14 @@ fn generate_new_filename(path: &str) -> String {
             None
         }
     });
+    println!("{}", lang.clone().unwrap_or_default());
 
     let extension = path_buf
         .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("");
+        .and_then(|ext| Some(ext.to_string()))
+        .unwrap_or("".to_string());
+
+    println!("{}", extension);
 
     let new_filename = match lang {
         Some(lang_code) => format!(
@@ -439,7 +552,11 @@ fn generate_new_filename(path: &str) -> String {
             extension,
             lang_code
         ),
-        None => format!("{}.toml", filename.replace(&format!(".{}", extension), "")),
+        None => format!(
+            "{}_{}.toml",
+            filename.replace(&format!(".{}", extension), ""),
+            extension
+        ),
     };
 
     new_filename
