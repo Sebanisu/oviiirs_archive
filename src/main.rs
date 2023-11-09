@@ -1,23 +1,38 @@
 extern crate toml;
 
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
-use serde::{Serialize, Deserialize};
 
 // Top level struct to hold the TOML data.
-#[derive(Serialize,Deserialize,Default)]
+#[derive(Serialize, Deserialize, Default)]
 struct Config {
+    #[serde(default)]
     locations: Locations,
 }
 
 // Config struct holds to data from the `[config]` section.
-#[derive(Serialize,Deserialize,Default)]
+#[derive(Serialize, Deserialize, Default)]
 struct Locations {
+    #[serde(default)]
     chosen_directory: String,
+    #[serde(default)]
     directories: Vec<String>,
+}
+
+impl Locations {
+    // Function to ensure chosen_directory is in directories
+    fn ensure_chosen_directory_in_directories(&mut self) {
+        let path = Path::new(&self.chosen_directory);
+        if path.exists() && path.is_dir() {
+            if !self.directories.contains(&self.chosen_directory) {
+                self.directories.push(self.chosen_directory.clone());
+            }
+        }
+    }
 }
 
 enum DirectorySelection {
@@ -33,8 +48,7 @@ fn main() -> io::Result<()> {
 
     //let mut config = parse_toml_contents(&contents, config_path)?;
 
-    let mut config: Config = match toml::from_str(&contents)
-    {
+    let mut config: Config = match toml::from_str::<Config>(&contents) {
         // If successful, return data as `Data` struct.
         // `data` is a local variable.
         Ok(data) => data,
@@ -48,6 +62,8 @@ fn main() -> io::Result<()> {
         }
     };
 
+    config.locations.ensure_chosen_directory_in_directories();
+
     let directories = filter_valid_directories(&config.locations.directories);
 
     let user_choice = display_directory_info(&directories, &config.locations.chosen_directory);
@@ -56,8 +72,13 @@ fn main() -> io::Result<()> {
         DirectorySelection::NewDirectory(new_dir) => {
             // Handle the case when a new directory is chosen
             println!("New directory selected: {}", new_dir);
-            // Do something extra for the new directory
             config.locations.directories.push(new_dir.clone());
+
+            // Sort the directories
+            config.locations.directories.sort();
+
+            // Deduplicate the sorted list
+            config.locations.directories.dedup();
             new_dir
         }
         DirectorySelection::ExistingDirectory(existing_dir) => {
@@ -76,7 +97,7 @@ fn main() -> io::Result<()> {
     };
 
     config.locations.chosen_directory = chosen_directory;
-    
+
     save_config(&config, config_path)?;
 
     Ok(())
@@ -117,8 +138,8 @@ fn display_directory_info(
         if directories.is_empty() {
             println!("    None...");
         } else {
-            for (index, dir_path) in directories.iter().enumerate() {                               
-                println!(" {:>3}: {}", index + 1, dir_path);                
+            for (index, dir_path) in directories.iter().enumerate() {
+                println!(" {:>3}: {}", index + 1, dir_path);
             }
         }
 
@@ -131,7 +152,7 @@ fn display_directory_info(
             let path = Path::new(&previously_chosen_directory);
             path.exists() && path.is_dir()
         };
-        
+
         if has_chosen_directory {
             println!(
                 "  - Press Enter to use the previously chosen directory: {}",
@@ -154,9 +175,7 @@ fn display_directory_info(
         };
 
         if is_condition_met() {
-            return DirectorySelection::ExistingDirectory(
-                previously_chosen_directory.clone(),
-            );
+            return DirectorySelection::ExistingDirectory(previously_chosen_directory.clone());
         } else if user_input.eq_ignore_ascii_case("N") {
             // User wants to use a new directory
             println!("Enter the path of the new directory:");
