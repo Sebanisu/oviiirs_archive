@@ -5,7 +5,20 @@ use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
-use toml::Value;
+use serde::{Serialize, Deserialize};
+
+// Top level struct to hold the TOML data.
+#[derive(Serialize,Deserialize,Default)]
+struct Config {
+    locations: Locations,
+}
+
+// Config struct holds to data from the `[config]` section.
+#[derive(Serialize,Deserialize,Default)]
+struct Locations {
+    chosen_directory: String,
+    directories: Vec<String>,
+}
 
 enum DirectorySelection {
     NewDirectory(String),
@@ -18,43 +31,33 @@ fn main() -> io::Result<()> {
 
     let contents = read_file_contents(config_path)?;
 
-    let mut config = parse_toml_contents(&contents, config_path)?;
+    //let mut config = parse_toml_contents(&contents, config_path)?;
 
-    let mut locations = config.get("locations")?;
+    let mut config: Config = match toml::from_str(&contents)
+    {
+        // If successful, return data as `Data` struct.
+        // `data` is a local variable.
+        Ok(data) => data,
+        // Handle the `error` case.
+        Err(_) => {
+            // // Write `msg` to `stderr`.
+            // eprintln!("Unable to load data from `{}`", config_path);
+            // // Exit the program with exit code `1`.
+            // exit(1);
+            Default::default()
+        }
+    };
 
-    let mut directories = extract_directories(&config)?;
+    let directories = filter_valid_directories(&config.locations.directories);
 
-    let user_choice = display_directory_info(&directories, &extract_chosen_directory(&config));
+    let user_choice = display_directory_info(&directories, &config.locations.chosen_directory);
 
     let chosen_directory = match user_choice {
         DirectorySelection::NewDirectory(new_dir) => {
             // Handle the case when a new directory is chosen
             println!("New directory selected: {}", new_dir);
             // Do something extra for the new directory
-            directories.push(new_dir.clone());
-
-            // Create the "directories" key if it doesn't exist
-            if !config.as_table().unwrap().contains_key("directories") {
-                config
-                    .as_table_mut()
-                    .unwrap()
-                    .insert("directories".to_string(), toml::Value::Array(Vec::new()));
-            }
-
-            // Update the "directories" array
-            let directories_array = config
-                .as_table_mut()
-                .unwrap()
-                .get_mut("directories")
-                .unwrap();
-            if let toml::Value::Array(array) = directories_array {
-                for dir in directories {
-                    array.push(toml::Value::String(dir));
-                }
-            } else {
-                panic!("'directories' is not an array in the TOML file");
-            }
-
+            config.locations.directories.push(new_dir.clone());
             new_dir
         }
         DirectorySelection::ExistingDirectory(existing_dir) => {
@@ -72,15 +75,8 @@ fn main() -> io::Result<()> {
         }
     };
 
-    // Use the chosen_directory variable for any common logic
-    if let Value::Table(table) = &mut config {
-        table.insert(
-            "chosen_directory".to_string(),
-            Value::String(chosen_directory.to_string()),
-        );
-    } else {
-        panic!("Root of config.toml is not a table");
-    }
+    config.locations.chosen_directory = chosen_directory;
+    
     save_config(&config, config_path)?;
 
     Ok(())
@@ -93,62 +89,36 @@ fn read_file_contents(config_path: &str) -> io::Result<String> {
     })
 }
 
-fn parse_toml_contents(contents: &str, config_path: &str) -> io::Result<Value> {
-    toml::from_str(contents).or_else(|_| {
-        eprintln!("Unable to load data from `{}`", config_path);
-        exit(1);
-    })
-}
+fn filter_valid_directories(dirs: &Vec<String>) -> Vec<String> {
+    let mut valid_dirs = Vec::<String>::new();
 
-fn extract_directories(config: &Value) -> io::Result<Vec<String>> {
-    if let Some(config_directories) = config.get("directories") {
-        let dirs: io::Result<Vec<String>> = config_directories
-            .as_array()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Invalid directories"))
-            .and_then(|arr| {
-                arr.iter()
-                    .map(|dir| {
-                        dir.as_str()
-                            .ok_or_else(|| {
-                                io::Error::new(io::ErrorKind::Other, "Invalid directory path")
-                            })
-                            .map(|dir_str| dir_str.to_string())
-                    })
-                    .collect::<Result<Vec<String>, io::Error>>()
-            });
-        dirs
-    } else {
-        Ok(Vec::new())
-    }
-}
-
-fn extract_chosen_directory(config: &Value) -> Option<String> {
-    if let Some(chosen_directory) = config.get("chosen_directory") {
-        if let Some(chosen_directory_str) = chosen_directory.as_str() {
-            Some(chosen_directory_str.to_string())
-        } else {
-            None // "chosen_directory" exists but is not a string
+    for dir in dirs {
+        if let Ok(metadata) = fs::metadata(&dir) {
+            if metadata.is_dir() {
+                valid_dirs.push(dir.clone());
+            }
         }
-    } else {
-        None // "chosen_directory" does not exist in the config
     }
+    // Sort the valid directories
+    valid_dirs.sort();
+
+    // Deduplicate the sorted list
+    valid_dirs.dedup();
+
+    valid_dirs
 }
 
 fn display_directory_info(
     directories: &Vec<String>,
-    previously_chosen_directory: &Option<String>,
+    previously_chosen_directory: &String,
 ) -> DirectorySelection {
     loop {
         println!("\nSaved FF8 Directories:\n");
         if directories.is_empty() {
             println!("    None...");
-        }
-        else {       
-            for (index, dir_path) in directories.iter().enumerate() {
-                let dir_exists = Path::new(dir_path).is_dir();
-                if dir_exists {
-                    println!(" {:>3}: {}", index + 1, dir_path);
-                }
+        } else {
+            for (index, dir_path) in directories.iter().enumerate() {                               
+                println!(" {:>3}: {}", index + 1, dir_path);                
             }
         }
 
@@ -157,23 +127,17 @@ fn display_directory_info(
         println!("\nOptions:\n");
         println!("  - Enter 'N' to use a new directory");
         println!("  - Enter the number of the directory you want to choose (or '0' to exit):");
-        let has_chosen_directory = match previously_chosen_directory {
-            Some(path_str) => {
-                let path = Path::new(path_str);
-                let path_exists = path.exists();
-                let is_directory = path.is_dir();
-                if path_exists && is_directory {
-                    println!(
-                        "  - Press Enter to use the previously chosen directory: {}",
-                        path_str
-                    );
-                    true
-                } else {
-                    false
-                }
-            }
-            None => false,
+        let has_chosen_directory = {
+            let path = Path::new(&previously_chosen_directory);
+            path.exists() && path.is_dir()
         };
+        
+        if has_chosen_directory {
+            println!(
+                "  - Press Enter to use the previously chosen directory: {}",
+                previously_chosen_directory
+            );
+        }
 
         let mut user_input = String::new();
         io::stdin()
@@ -182,7 +146,7 @@ fn display_directory_info(
 
         user_input = user_input.trim().to_string();
 
-        let is_condition_met = || {            
+        let is_condition_met = || {
             if user_input.is_empty() && !has_chosen_directory {
                 println!("No previously chosen directory is available.");
             }
@@ -191,7 +155,7 @@ fn display_directory_info(
 
         if is_condition_met() {
             return DirectorySelection::ExistingDirectory(
-                previously_chosen_directory.as_ref().unwrap().clone(),
+                previously_chosen_directory.clone(),
             );
         } else if user_input.eq_ignore_ascii_case("N") {
             // User wants to use a new directory
@@ -239,7 +203,7 @@ fn display_directory_info(
     }
 }
 
-fn save_config(config: &toml::Value, filename: &str) -> Result<(), std::io::Error> {
+fn save_config(config: &Config, filename: &str) -> Result<(), std::io::Error> {
     let config_str = toml::to_string(config).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
