@@ -2,12 +2,18 @@ extern crate bincode;
 extern crate toml;
 
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::exit;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -23,6 +29,11 @@ struct ZZZHeader {
     file_path: String,
     count: u32,
     entries: Vec<ZZZEntry>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct FL {
+    entries: Vec<String>,
 }
 
 // Top level struct to hold the TOML data.
@@ -107,6 +118,14 @@ fn main() -> io::Result<()> {
                     Ok(data) => {
                         let tmp_zzz_filename = generate_zzz_filename(&zzz_file);
                         save_config(&data, &tmp_zzz_filename)?;
+                        // Iterate through ZZZEntry::string_data and filter for paths ending with ".fl"
+                        for entry in &data.entries {
+                            let path = Path::new(&entry.string_data);
+                            if path.is_relative() && path.extension() == Some(OsStr::new("fl")) {
+                                // This is a relative path ending with ".fl"
+                                println!("Found .fl file: {:?}", path);
+                            }
+                        }
                     }
                     Err(err) => {
                         eprintln!("Error: {:?}", err);
@@ -353,4 +372,75 @@ fn generate_zzz_filename(path: &String) -> String {
 
     let zzz_filename = format!("{}_zzz.toml", base_name);
     zzz_filename
+}
+
+fn read_entries_from_file(
+    entry: &ZZZEntry,
+    file_path: &str,
+) -> Result<FL, Box<dyn std::error::Error>> {
+    // Open the file specified by file_path for reading
+    let file = File::open(file_path)?;
+
+    // Initialize a BufReader for efficient reading
+    let mut reader = BufReader::new(file);
+
+    // Create a FL struct to hold the entries
+    let mut fl = FL { entries: vec![] };
+
+    // Seek to the file_offset
+    reader.seek(SeekFrom::Start(entry.file_offset))?;
+
+    // Read strings separated by newlines up to (file_offset + file_size)
+    let mut buffer = String::new();
+    let mut bytes_read = 0;
+
+    while bytes_read < entry.file_size as u64 {
+        let bytes_to_read = (entry.file_size as u64 - bytes_read) as usize;
+        reader.read_line(&mut buffer)?;
+
+        // Add the read line to FL.entries
+        fl.entries.push(buffer.clone());
+
+        // Clear the buffer for the next line
+        buffer.clear();
+
+        // Update the number of bytes read
+        bytes_read += bytes_to_read as u64;
+    }
+
+    Ok(fl)
+}
+
+fn generate_new_filename(path: &str) -> String {
+    let path_buf = PathBuf::from(path);
+    let filename = path_buf.file_name().unwrap().to_str().unwrap();
+    let parent = path_buf.parent();
+    let lang = parent.and_then(|p| {
+        if let Some(parent_str) = p.to_str() {
+            if parent_str.starts_with("lang-") {
+                Some(&parent_str[5..])
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    });
+
+    let extension = path_buf
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+
+    let new_filename = match lang {
+        Some(lang_code) => format!(
+            "{}_{}_{}.toml",
+            filename.replace(&format!(".{}", extension), ""),
+            extension,
+            lang_code
+        ),
+        None => format!("{}.toml", filename.replace(&format!(".{}", extension), "")),
+    };
+
+    new_filename
 }
