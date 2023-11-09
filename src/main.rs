@@ -68,7 +68,7 @@ fn main() -> io::Result<()> {
         }
         DirectorySelection::Exit => {
             // Handle the case when the user chooses to exit
-            println!("Exiting the program");
+            println!("Exiting...");
             // Perform any necessary cleanup and exit the program
             // You can return a default value here or use a placeholder value
             exit(0);
@@ -191,7 +191,6 @@ fn display_directory_info(
                 }
                 Ok(0) => {
                     // User chose to exit
-                    println!("Exiting...");
                     return DirectorySelection::Exit;
                 }
                 _ => {
