@@ -3,7 +3,7 @@ extern crate toml;
 
 use core::fmt;
 use serde::{Deserialize, Serialize};
-use std::ffi::OsStr;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io;
@@ -15,7 +15,6 @@ use std::io::SeekFrom;
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
-use typed_path::Utf8WindowsPath;
 use typed_path::Utf8WindowsPathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -54,7 +53,7 @@ impl fmt::Display for CompressionTypeT {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct ZZZEntry {
     string_length: u32,
     string_data: String,
@@ -62,7 +61,7 @@ struct ZZZEntry {
     file_size: u32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct ZZZHeader {
     file_path: String,
     count: u32,
@@ -89,6 +88,39 @@ struct Locations {
     chosen_directory: String,
     #[serde(default)]
     directories: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+struct FIFLFSZZZ {
+    fi: Option<ZZZEntry>,
+    fl: Option<ZZZEntry>,
+    fs: Option<ZZZEntry>,
+}
+
+impl FIFLFSZZZ {
+    fn all_some(&self) -> bool {
+        self.fi.is_some() && self.fl.is_some() && self.fs.is_some()
+    }
+}
+
+impl FIFLFSZZZ {
+    fn push(&mut self, entry: ZZZEntry) -> bool {
+        match entry.string_data.as_str() {
+            s if s.ends_with("fi") => {
+                self.fi = Some(entry);
+                true
+            }
+            s if s.ends_with("fl") => {
+                self.fl = Some(entry);
+                true
+            }
+            s if s.ends_with("fs") => {
+                self.fs = Some(entry);
+                true
+            }
+            _ => false, // Return false for unrecognized extensions
+        }
+    }
 }
 
 impl Locations {
@@ -158,40 +190,45 @@ fn main() -> io::Result<()> {
                         let tmp_zzz_filename = generate_zzz_filename(&zzz_file);
                         save_config(&data, &tmp_zzz_filename)?;
                         // Iterate through ZZZEntry::string_data and filter for paths ending with ".fl"
-                        for entry in &data.entries {
-                            let path = Path::new(&entry.string_data);
-                            if path.is_relative() && path.extension() == Some(OsStr::new("fl")) {
+                        let groups = find_groups(data.entries.clone());
+                        for fiflfs in groups {
+                            if let Some(fi_entry) = &fiflfs.fi {
                                 // This is a relative path ending with ".fl"
-                                println!("Found .fl file: {:?}", path);
-                                match read_fl_entries_from_file(&entry, &zzz_file) {
-                                    Ok(fl) => {
-                                        // Successfully read entries
-                                        let fl_file_name =
-                                            generate_new_filename(&entry.string_data);
-                                        save_config(&fl, &fl_file_name)?;
-                                    }
-                                    Err(err) => {
-                                        // Handle the error
-                                        eprintln!("Error reading entries: {}", err);
-                                    }
-                                }
-                            } else if path.is_relative()
-                                && path.extension() == Some(OsStr::new("fi"))
-                            {
-                                // This is a relative path ending with ".fl"
-                                println!("Found .fi file: {:?}", path);
-                                match read_fi_entries_from_file(&entry, &zzz_file) {
-                                    Ok(fifile) => {
+                                println!("Found .fi file: {:?}", fi_entry.string_data);
+                                match read_fi_entries_from_file(&fi_entry, &zzz_file) {
+                                    Ok(fi) => {
                                         // Successfully read entries
                                         let fi_file_name =
-                                            generate_new_filename(&entry.string_data);
-                                        save_config(&fifile, &fi_file_name)?;
+                                            generate_new_filename(&fi_entry.string_data);
+                                        save_config(&fi, &fi_file_name)?;
                                     }
                                     Err(err) => {
                                         // Handle the error
                                         eprintln!("Error reading entries: {}", err);
                                     }
                                 }
+                            }
+
+                            if let Some(fl_entry) = &fiflfs.fl {
+                                // This is a relative path ending with ".fl"
+                                println!("Found .fl file: {:?}", fl_entry.string_data);
+                                match read_fl_entries_from_file(&fl_entry, &zzz_file) {
+                                    Ok(flfile) => {
+                                        // Successfully read entries
+                                        let fl_file_name =
+                                            generate_new_filename(&fl_entry.string_data);
+                                        save_config(&flfile, &fl_file_name)?;
+                                    }
+                                    Err(err) => {
+                                        // Handle the error
+                                        eprintln!("Error reading entries: {}", err);
+                                    }
+                                }
+                            }
+
+                            if let Some(fs_entry) = &fiflfs.fs {
+                                // Do something with fs_entry
+                                println!("Found other file: {:?}", fs_entry.string_data);
                             }
                         }
                     }
@@ -519,11 +556,8 @@ fn read_fi_entries_from_file(
 
 fn generate_new_filename(path: &str) -> String {
     let path_buf = Utf8WindowsPathBuf::from(path);
-    println!("{}", path_buf);
     let filename = path_buf.file_name().unwrap().to_string();
-    println!("{}", filename);
     let parent = path_buf.parent();
-    println!("{}", parent.unwrap_or(Utf8WindowsPath::new("")));
     let lang: Option<String> = parent.and_then(|p| {
         if let Some(dir_name) = p.file_name() {
             let parent_str = dir_name.to_string();
@@ -536,14 +570,11 @@ fn generate_new_filename(path: &str) -> String {
             None
         }
     });
-    println!("{}", lang.clone().unwrap_or_default());
 
     let extension = path_buf
         .extension()
         .and_then(|ext| Some(ext.to_string()))
         .unwrap_or("".to_string());
-
-    println!("{}", extension);
 
     let new_filename = match lang {
         Some(lang_code) => format!(
@@ -560,4 +591,31 @@ fn generate_new_filename(path: &str) -> String {
     };
 
     new_filename
+}
+
+fn find_groups(entries: Vec<ZZZEntry>) -> Vec<FIFLFSZZZ> {
+    let mut groups: HashMap<String, FIFLFSZZZ> = HashMap::new();
+
+    for entry in entries {
+        let prefix = get_prefix(&entry.string_data);
+        groups
+            .entry(prefix)
+            .or_insert_with(FIFLFSZZZ::default)
+            .push(entry);
+    }
+
+    groups
+        .values()
+        .cloned()
+        .filter(|group| group.all_some())
+        .collect()
+}
+
+fn get_prefix(s: &str) -> String {
+    let parts: Vec<&str> = s.rsplitn(2, '.').collect(); // Use rsplitn to split only once from the right
+    if parts.len() >= 2 {
+        parts[1].to_string()
+    } else {
+        s.to_string()
+    }
 }
