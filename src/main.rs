@@ -46,9 +46,9 @@ impl Default for CompressionTypeT {
 impl fmt::Display for CompressionTypeT {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CompressionTypeT::None => write!(f, "None"),
-            CompressionTypeT::Lzss => write!(f, "Lzss"),
-            CompressionTypeT::Lz4 => write!(f, "Lz4"),
+            CompressionTypeT::None => write!(f, "none"),
+            CompressionTypeT::Lzss => write!(f, "lzss"),
+            CompressionTypeT::Lz4 => write!(f, "lz4"),
         }
     }
 }
@@ -64,16 +64,34 @@ enum LanguageCode {
     Jp, // Add more language codes as needed
 }
 
+trait FromStr {
+    fn from_str(s: &str) -> Self;
+}
+
+impl FromStr for LanguageCode {
+    fn from_str(s: &str) -> Self {
+        match s {
+            "en" => LanguageCode::En,
+            "de" => LanguageCode::De,
+            "es" => LanguageCode::Es,
+            "fr" => LanguageCode::Fr,
+            "it" => LanguageCode::It,
+            "jp" => LanguageCode::Jp,
+            _ => LanguageCode::None,
+        }
+    }
+}
+
 impl Default for LanguageCode {
     fn default() -> Self {
         LanguageCode::None
     }
 }
 
-impl fmt::Display for LanguageCode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl std::fmt::Display for LanguageCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            LanguageCode::None => write!(f, "None"),
+            LanguageCode::None => write!(f, "none"),
             LanguageCode::En => write!(f, "en"),
             LanguageCode::De => write!(f, "de"),
             LanguageCode::Es => write!(f, "es"),
@@ -122,7 +140,7 @@ struct Locations {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-struct FIFLFSZZZ {    
+struct FIFLFSZZZ {
     file_path: String,
     language: LanguageCode,
     fi: Option<ZZZEntry>,
@@ -223,9 +241,14 @@ fn main() -> io::Result<()> {
                         let tmp_zzz_filename = generate_zzz_filename(&zzz_file);
                         save_config(&data, &tmp_zzz_filename)?;
                         // Iterate through ZZZEntry::string_data and filter for paths ending with ".fl"
-                        let groups = find_groups(data);
+                        let groups = find_groups(data.entries, &zzz_file);
                         for fiflfs in groups {
                             if let Some(fi_entry) = &fiflfs.fi {
+                                let fiflfs_zzz_filename = generate_new_filename_custom_extension(
+                                    &fi_entry.string_data,
+                                    "fiflfs_zzz",
+                                );
+                                save_config(&fiflfs, &fiflfs_zzz_filename)?;
                                 // This is a relative path ending with ".fl"
                                 println!("Found .fi file: {:?}", fi_entry.string_data);
                                 match read_fi_entries_from_file(&fi_entry, &zzz_file) {
@@ -590,43 +613,31 @@ fn read_fi_entries_from_file(
 fn generate_new_filename(path: &str) -> String {
     let path_buf = Utf8WindowsPathBuf::from(path);
     let filename = path_buf.file_name().unwrap().to_string();
-    let parent = path_buf.parent();
-    let lang: Option<String> = parent.and_then(|p| {
-        if let Some(dir_name) = p.file_name() {
-            let parent_str = dir_name.to_string();
-            if parent_str.starts_with("lang-") {
-                Some(parent_str[5..].to_string())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    });
+    let lang_code = get_language_code(&path_buf);
 
     let extension = path_buf
         .extension()
         .and_then(|ext| Some(ext.to_string()))
         .unwrap_or("".to_string());
 
-    let new_filename = match lang {
-        Some(lang_code) => format!(
+    let new_filename = match lang_code {
+        LanguageCode::None => format!(
+            "{}_{}.toml",
+            filename.replace(&format!(".{}", extension), ""),
+            extension
+        ),
+        _ => format!(
             "{}_{}_{}.toml",
             filename.replace(&format!(".{}", extension), ""),
             extension,
             lang_code
-        ),
-        None => format!(
-            "{}_{}.toml",
-            filename.replace(&format!(".{}", extension), ""),
-            extension
         ),
     };
 
     new_filename
 }
 
-fn find_groups(entries: Vec<ZZZEntry>, &file_path:String) -> Vec<FIFLFSZZZ> {
+fn find_groups(entries: Vec<ZZZEntry>, file_path: &String) -> Vec<FIFLFSZZZ> {
     let mut groups: HashMap<String, FIFLFSZZZ> = HashMap::new();
 
     for entry in entries {
@@ -641,6 +652,20 @@ fn find_groups(entries: Vec<ZZZEntry>, &file_path:String) -> Vec<FIFLFSZZZ> {
         .values()
         .cloned()
         .filter(|group| group.all_some())
+        .map(|mut group| {
+            // Unwrap the Option assuming it is Some, and then get a reference to string_data
+            let string_data = &group.fi.as_ref().unwrap().string_data;
+
+            // Create Utf8WindowsPathBuf from the unwrapped string data
+            let path_buf = Utf8WindowsPathBuf::from(string_data);
+
+            // Update the file_path field in the group
+            group.file_path = file_path.clone();
+
+            // Update the language field in the group
+            group.language = get_language_code(&path_buf);
+            group
+        })
         .collect()
 }
 
@@ -651,4 +676,41 @@ fn get_prefix(s: &str) -> String {
     } else {
         s.to_string()
     }
+}
+
+fn get_language_code(path: &Utf8WindowsPathBuf) -> LanguageCode {
+    let parent = path.parent();
+
+    if let Some(dir_name) = parent.and_then(|p| p.file_name()) {
+        let parent_str = dir_name.to_string();
+        if parent_str.starts_with("lang-") {
+            LanguageCode::from_str(&parent_str[5..])
+        } else {
+            LanguageCode::None
+        }
+    } else {
+        LanguageCode::None
+    }
+}
+
+fn generate_new_filename_custom_extension(path: &str, extension: &str) -> String {
+    let path_buf = Utf8WindowsPathBuf::from(path);
+    let filename = path_buf.file_stem().unwrap().to_string();
+    let lang_code = get_language_code(&path_buf);
+
+    let new_filename = match lang_code {
+        LanguageCode::None => format!(
+            "{}_{}.toml",
+            filename.replace(&format!(".{}", extension), ""),
+            extension
+        ),
+        _ => format!(
+            "{}_{}_{}.toml",
+            filename.replace(&format!(".{}", extension), ""),
+            extension,
+            lang_code
+        ),
+    };
+
+    new_filename
 }
