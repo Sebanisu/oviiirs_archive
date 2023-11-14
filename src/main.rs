@@ -16,10 +16,8 @@ use std::io::Write;
 use std::path::Path;
 use std::process::exit;
 use typed_path::Utf8Path;
-use typed_path::Utf8PathBuf;
-use typed_path::Utf8WindowsEncoding;
-use typed_path::Utf8WindowsPathBuf;
-use typed_path::Utf8UnixEncoding;
+use typed_path::Utf8TypedPath;
+use typed_path::Utf8WindowsPath;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct FI {
@@ -248,7 +246,7 @@ struct FIFLFSZZZ {
 impl FIFLFSZZZTemp {
     fn move_into_final(self, file_path: String) -> FIFLFSZZZ {
         let string_data = &self.fi.as_ref().unwrap().string_data;
-        let path_buf = Utf8WindowsPathBuf::from(string_data);
+        let path_buf = Utf8WindowsPath::new(string_data);
         let language = get_language_code(&path_buf);
         let archive_type = get_archive_type(&path_buf);
         FIFLFSZZZ {
@@ -353,7 +351,10 @@ fn main() -> io::Result<()> {
         for archive in archives {
             save_config(
                 &archive,
-                &generate_new_filename_custom_extension(&archive.fi.string_data, "fiflfs_zzz"),
+                &generate_new_filename_custom_extension(
+                    &Utf8WindowsPath::new(&archive.fi.string_data),
+                    "fiflfs_zzz",
+                ),
             )?;
 
             save_config(
@@ -555,11 +556,15 @@ fn process_files_in_directory(directory: &String) -> io::Result<Vec<String>> {
 }
 
 fn read_data_from_file(file_path: &String) -> io::Result<ZZZHeader> {
-    let archive_type = if file_path.contains('\\') {
-        get_zzz_archive_type(&Utf8PathBuf::<Utf8WindowsEncoding>::from(file_path))
-    } else {
-        // Default to Unix encoding if no backslashes are found
-        get_zzz_archive_type(&Utf8PathBuf::<Utf8UnixEncoding>::from(file_path))
+    let archive_type = match Utf8TypedPath::derive(file_path) {
+        Utf8TypedPath::Unix(unix_path_buf) => {
+            // Handle Unix path
+            get_zzz_archive_type(&unix_path_buf)
+        }
+        Utf8TypedPath::Windows(windows_path_buf) => {
+            // Handle Windows path
+            get_zzz_archive_type(&windows_path_buf)
+        }
     };
 
     let mut file = File::open(file_path)?;
@@ -685,7 +690,7 @@ fn read_fi_entries_from_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FI
 }
 
 fn generate_new_filename(path: &str) -> String {
-    let path_buf = Utf8WindowsPathBuf::from(path);
+    let path_buf = Utf8WindowsPath::new(path);
     let filename = path_buf.file_name().unwrap().to_string();
     let lang_code = get_language_code(&path_buf);
 
@@ -739,8 +744,10 @@ fn get_prefix(s: &str) -> String {
     }
 }
 
-fn get_language_code(path: &Utf8WindowsPathBuf) -> LanguageCode {
-    let parent = path.parent();
+fn get_language_code<E: for<'enc> typed_path::Utf8Encoding<'enc>>(
+    path_buf: &Utf8Path<E>,
+) -> LanguageCode {
+    let parent = path_buf.parent();
 
     if let Some(dir_name) = parent.and_then(|p| p.file_name()) {
         let parent_str = dir_name.to_string();
@@ -754,7 +761,9 @@ fn get_language_code(path: &Utf8WindowsPathBuf) -> LanguageCode {
     }
 }
 
-fn get_archive_type(path_buf: &Utf8WindowsPathBuf) -> ArchiveType {
+fn get_archive_type<E: for<'enc> typed_path::Utf8Encoding<'enc>>(
+    path_buf: &Utf8Path<E>,
+) -> ArchiveType {
     let filename = path_buf.file_stem().unwrap().to_string();
     ArchiveType::from_str(&filename)
 }
@@ -766,8 +775,10 @@ fn get_zzz_archive_type<E: for<'enc> typed_path::Utf8Encoding<'enc>>(
     ZZZArchiveType::from_str(&filename)
 }
 
-fn generate_new_filename_custom_extension(path: &str, extension: &str) -> String {
-    let path_buf = Utf8WindowsPathBuf::from(path);
+fn generate_new_filename_custom_extension<E: for<'enc> typed_path::Utf8Encoding<'enc>>(
+    path_buf: &Utf8Path<E>,
+    extension: &str,
+) -> String {
     let filename = path_buf.file_stem().unwrap().to_string();
     let lang_code = get_language_code(&path_buf);
 
