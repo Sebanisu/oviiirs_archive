@@ -15,7 +15,11 @@ use std::io::SeekFrom;
 use std::io::Write;
 use std::path::Path;
 use std::process::exit;
+use typed_path::Utf8Path;
+use typed_path::Utf8PathBuf;
+use typed_path::Utf8WindowsEncoding;
 use typed_path::Utf8WindowsPathBuf;
+use typed_path::Utf8UnixEncoding;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct FI {
@@ -50,6 +54,39 @@ impl fmt::Display for CompressionTypeT {
             CompressionTypeT::Lzss => write!(f, "lzss"),
             CompressionTypeT::Lz4 => write!(f, "lz4"),
         }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+enum ZZZArchiveType {
+    None,
+    Main,
+    Other,
+}
+
+impl std::fmt::Display for ZZZArchiveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ZZZArchiveType::None => write!(f, "none"),
+            ZZZArchiveType::Main => write!(f, "Main"),
+            ZZZArchiveType::Other => write!(f, "Other"),
+        }
+    }
+}
+
+impl FromStr for ZZZArchiveType {
+    fn from_str(s: &str) -> Self {
+        match s {
+            "main" => ZZZArchiveType::Main,
+            "other" => ZZZArchiveType::Other,
+            _ => ZZZArchiveType::None,
+        }
+    }
+}
+
+impl Default for ZZZArchiveType {
+    fn default() -> Self {
+        ZZZArchiveType::None
     }
 }
 
@@ -158,6 +195,7 @@ struct ZZZEntry {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct ZZZHeader {
     file_path: String,
+    archive_type: ZZZArchiveType,
     count: u32,
     entries: Vec<ZZZEntry>,
 }
@@ -307,29 +345,31 @@ fn main() -> io::Result<()> {
 
     for zzz_file in zzz_files {
         let data = read_data_from_file(&zzz_file)?;
-        let groups = find_groups(data.entries.clone(), &zzz_file);
+        let archives = find_archives(data.entries.clone(), &zzz_file);
 
-        //create toml of data
+        //begin create toml of data
         save_config(&data, &generate_zzz_filename(&zzz_file))?;
 
-        for fiflfs in groups {
-            let fi_entry = &fiflfs.fi;
-
+        for archive in archives {
             save_config(
-                &fiflfs,
-                &generate_new_filename_custom_extension(&fi_entry.string_data, "fiflfs_zzz"),
+                &archive,
+                &generate_new_filename_custom_extension(&archive.fi.string_data, "fiflfs_zzz"),
             )?;
 
-            let fi = read_fi_entries_from_file(&fi_entry, &zzz_file)?;
-            save_config(&fi, &generate_new_filename(&fi_entry.string_data))?;
+            save_config(
+                &read_fi_entries_from_file(&archive.fi, &zzz_file)?,
+                &generate_new_filename(&archive.fi.string_data),
+            )?;
 
-            let fl_entry = &fiflfs.fl;
-            let flfile = read_fl_entries_from_file(&fl_entry, &zzz_file)?;
-            save_config(&flfile, &generate_new_filename(&fl_entry.string_data))?;
+            save_config(
+                &read_fl_entries_from_file(&archive.fl, &zzz_file)?,
+                &generate_new_filename(&&archive.fl.string_data),
+            )?;
 
-            let _fs_entry = &fiflfs.fs;
+            //let _fs_entry = &archive.fs;
             // Do something with fs_entry
         }
+        //end dump toml of data
     }
 
     Ok(())
@@ -515,6 +555,13 @@ fn process_files_in_directory(directory: &String) -> io::Result<Vec<String>> {
 }
 
 fn read_data_from_file(file_path: &String) -> io::Result<ZZZHeader> {
+    let archive_type = if file_path.contains('\\') {
+        get_zzz_archive_type(&Utf8PathBuf::<Utf8WindowsEncoding>::from(file_path))
+    } else {
+        // Default to Unix encoding if no backslashes are found
+        get_zzz_archive_type(&Utf8PathBuf::<Utf8UnixEncoding>::from(file_path))
+    };
+
     let mut file = File::open(file_path)?;
 
     // Read the 32-bit count from the file
@@ -546,6 +593,7 @@ fn read_data_from_file(file_path: &String) -> io::Result<ZZZHeader> {
 
     Ok(ZZZHeader {
         file_path: file_path.to_string(),
+        archive_type,
         count,
         entries,
     })
@@ -663,18 +711,18 @@ fn generate_new_filename(path: &str) -> String {
     new_filename
 }
 
-fn find_groups(entries: Vec<ZZZEntry>, file_path: &String) -> Vec<FIFLFSZZZ> {
-    let mut groups: HashMap<String, FIFLFSZZZTemp> = HashMap::new();
+fn find_archives(entries: Vec<ZZZEntry>, file_path: &String) -> Vec<FIFLFSZZZ> {
+    let mut archives: HashMap<String, FIFLFSZZZTemp> = HashMap::new();
 
     for entry in entries {
         let prefix = get_prefix(&entry.string_data);
-        groups
+        archives
             .entry(prefix)
             .or_insert_with(FIFLFSZZZTemp::default)
             .push(entry);
     }
 
-    groups
+    archives
         .values()
         .cloned()
         .filter(|group| group.all_some())
@@ -709,6 +757,13 @@ fn get_language_code(path: &Utf8WindowsPathBuf) -> LanguageCode {
 fn get_archive_type(path_buf: &Utf8WindowsPathBuf) -> ArchiveType {
     let filename = path_buf.file_stem().unwrap().to_string();
     ArchiveType::from_str(&filename)
+}
+
+fn get_zzz_archive_type<E: for<'enc> typed_path::Utf8Encoding<'enc>>(
+    path_buf: &Utf8Path<E>,
+) -> ZZZArchiveType {
+    let filename = path_buf.file_stem().unwrap().to_string();
+    ZZZArchiveType::from_str(&filename)
 }
 
 fn generate_new_filename_custom_extension(path: &str, extension: &str) -> String {
