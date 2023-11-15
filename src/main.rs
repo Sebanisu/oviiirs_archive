@@ -2,6 +2,7 @@ extern crate bincode;
 extern crate toml;
 
 use core::fmt;
+use lzss::Lzss;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -14,10 +15,15 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::exit;
+use typed_path::Utf8NativeEncoding;
+use typed_path::Utf8NativePath;
 use typed_path::Utf8Path;
 use typed_path::Utf8TypedPath;
 use typed_path::Utf8WindowsPath;
+
+type MyLzss = Lzss<10, 4, 0x20, { 1 << 10 }, { 2 << 10 }>;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct FI {
@@ -32,7 +38,7 @@ struct FIfile {
     entries: Vec<FI>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 enum CompressionTypeT {
     None,
     Lzss,
@@ -356,22 +362,63 @@ fn main() -> io::Result<()> {
                     "fiflfs_zzz",
                 ),
             )?;
+            let fi_file = read_fi_entries_from_file(&archive.fi, &zzz_file)?;
+            save_config(&fi_file, &generate_new_filename(&archive.fi.string_data))?;
 
-            save_config(
-                &read_fi_entries_from_file(&archive.fi, &zzz_file)?,
-                &generate_new_filename(&archive.fi.string_data),
-            )?;
+            let fl_file = read_fl_entries_from_file(&archive.fl, &zzz_file)?;
+            save_config(&fl_file, &generate_new_filename(&&archive.fl.string_data))?;
 
-            save_config(
-                &read_fl_entries_from_file(&archive.fl, &zzz_file)?,
-                &generate_new_filename(&&archive.fl.string_data),
-            )?;
+            for (fi, fl) in fi_file
+                .entries
+                .iter()
+                .zip(fl_file.entries.iter())
+                .filter(|&entry| entry.0.compression_type == CompressionTypeT::None)
+            {
+                let zzz_offset = archive.fs.file_offset + fi.offset as u64;
+                let zzz_size = fi.uncompressed_size as u64;
+                let windows_file_path = Utf8WindowsPath::new(fl);
+                let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
+                    Ok(p) => p,
+                    Err(_) => windows_file_path,
+                };
+                let extract_path = Utf8NativePath::new("test");
+                let native_file_path =
+                    relative_windows_file_path.with_encoding::<Utf8NativeEncoding>();
+                //let file_path = Path::new(native_file_path.as_str());
+                let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
+                println!("FI: {:?}", fi);
+                println!("FL: {:?}", fl);
+                println!(
+                    "zzz Offset: {}, zzz size {}, relative path {}",
+                    zzz_offset,
+                    zzz_size,
+                    new_extract_path.display()
+                );
+                println!("--------------------------");
 
+                // Create the directories for the path
+                if let Some(parent) = new_extract_path.parent() {
+                    if let Err(err) = fs::create_dir_all(parent) {
+                        eprintln!("Error creating directories: {}", err);
+                    } else {
+                        println!("Directories created successfully");
+                    }
+                }
+                let raw_file_bytes = read_bytes_from_file(&zzz_file, zzz_offset, zzz_size)?;
+                write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
+            }
             //let _fs_entry = &archive.fs;
             // Do something with fs_entry
         }
         //end dump toml of data
     }
+
+    Ok(())
+}
+
+fn write_bytes_to_file(file_path: &PathBuf, data: &[u8]) -> io::Result<()> {
+    let mut file = File::create(file_path)?;
+    file.write_all(data)?;
 
     Ok(())
 }
@@ -659,19 +706,10 @@ fn read_fl_entries_from_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FL
 }
 
 fn read_fi_entries_from_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FIfile> {
-    // Open the file specified by file_path for reading
-    let mut file = File::open(file_path)?;
-
-    // Seek to the file_offset
-    file.seek(SeekFrom::Start(entry.file_offset))?;
-
     // Create a FIfile struct to hold the entries
     let mut fifile = FIfile::default();
     fifile.file_path = entry.string_data.clone();
-
-    // Read strings separated by newlines up to (file_offset + file_size)
-    let mut buffer = vec![0; entry.file_size as usize];
-    file.read_exact(&mut buffer)?;
+    let buffer = read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?;
 
     let mut cursor = io::Cursor::new(buffer);
 
@@ -797,4 +835,19 @@ fn generate_new_filename_custom_extension<E: for<'enc> typed_path::Utf8Encoding<
     };
 
     new_filename
+}
+
+// Function to read bytes from a file at a specified offset
+fn read_bytes_from_file(file_path: &str, offset: u64, size: u64) -> Result<Vec<u8>, io::Error> {
+    // Open the file
+    let mut file = File::open(file_path)?;
+
+    // Seek to the specified offset
+    file.seek(SeekFrom::Start(offset))?;
+
+    // Read the specified number of bytes
+    let mut buffer = vec![0; size as usize];
+    file.read_exact(&mut buffer)?;
+
+    Ok(buffer)
 }

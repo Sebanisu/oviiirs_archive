@@ -16,3 +16,5 @@ Cargo.lock
 *_fl*.toml
 *_fi*.toml
 *_zzz*.toml
+
+test/*
