@@ -2,6 +2,7 @@ extern crate bincode;
 extern crate toml;
 
 use core::fmt;
+use itertools::Itertools;
 use lzss::Lzss;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -368,12 +369,30 @@ fn main() -> io::Result<()> {
             let fl_file = read_fl_entries_from_file(&archive.fl, &zzz_file)?;
             save_config(&fl_file, &generate_new_filename(&&archive.fl.string_data))?;
 
-            for (fi, fl) in fi_file
+            for (fi_eob, fl) in fi_file
                 .entries
                 .iter()
+                .zip_longest(fi_file.entries.iter().skip(1))
                 .zip(fl_file.entries.iter())
-                .filter(|&entry| entry.0.compression_type == CompressionTypeT::None)
             {
+                let tmp_fi = FI::default();
+                let fi = match fi_eob.as_ref().left() {
+                    Some(this_fi) => this_fi,
+                    None => {
+                        println!("left {}, right {}", fi_eob.has_left(), fi_eob.has_right());
+                        &tmp_fi
+                    }
+                };
+
+                let compressed_size: u64 = match fi_eob.as_ref().right() {
+                    Some(next_fi) => next_fi.offset as u64 - fi.offset as u64,
+                    None => archive.fs.file_size as u64 - fi.offset as u64,
+                };
+
+                if fi.uncompressed_size == 0 {
+                    continue;
+                }
+
                 let zzz_offset = archive.fs.file_offset + fi.offset as u64;
                 let zzz_size = fi.uncompressed_size as u64;
                 let windows_file_path = Utf8WindowsPath::new(fl);
@@ -401,11 +420,37 @@ fn main() -> io::Result<()> {
                     if let Err(err) = fs::create_dir_all(parent) {
                         eprintln!("Error creating directories: {}", err);
                     } else {
-                        println!("Directories created successfully");
+                        //println!("Directories created successfully");
                     }
                 }
-                let raw_file_bytes = read_bytes_from_file(&zzz_file, zzz_offset, zzz_size)?;
-                write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
+
+                match fi.compression_type {
+                    CompressionTypeT::None => {
+                        let raw_file_bytes = read_bytes_from_file(&zzz_file, zzz_offset, zzz_size)?;
+                        write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
+                    }
+                    CompressionTypeT::Lzss => {
+                        let compressed_bytes =
+                            read_bytes_from_file(&zzz_file, zzz_offset, compressed_size)?;
+                        let mut buffer = Vec::<u8>::new();
+
+                        // Create a Cursor that wraps the vector
+                        let mut read_cursor = io::Cursor::new(&compressed_bytes);
+                        let mut write_cursor = io::Cursor::new(&mut buffer);
+
+                        let result = MyLzss::decompress_stack(
+                            lzss::IOSimpleReader::new(&mut read_cursor),
+                            lzss::IOSimpleWriter::new(&mut write_cursor),
+                        );
+                        match result {
+                            Ok(_) => write_bytes_to_file(&new_extract_path, &buffer)?,
+                            Err(e) => {
+                                eprintln!("lzss error: {}", e);
+                            }
+                        }
+                    }
+                    CompressionTypeT::Lz4 => {}
+                };
             }
             //let _fs_entry = &archive.fs;
             // Do something with fs_entry
