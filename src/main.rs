@@ -1,8 +1,8 @@
-use std::{process::exit, fs, io, path::PathBuf};
+use std::{fs, io, path::PathBuf, process::exit};
 
 use itertools::Itertools;
-use oviiirs_archive::{load_config_from_file, filter_valid_directories, display_directory_info, DirectorySelection, save_config, process_files_in_directory, CompressionTypeT, read_bytes_from_file, write_bytes_to_file, read_data_from_file, find_archives, generate_zzz_filename, generate_new_filename_custom_extension, read_fi_entries_from_file, generate_new_filename, read_fl_entries_from_file};
-use typed_path::{Utf8WindowsPath, Utf8NativePath, Utf8NativeEncoding};
+use oviiirs_archive::oviiirs_archive::*;
+use typed_path::{Utf8NativeEncoding, Utf8NativePath, Utf8WindowsPath};
 
 fn main() -> io::Result<()> {
     let config_path: String = "config.toml".to_string();
@@ -71,7 +71,8 @@ fn main() -> io::Result<()> {
             for fi_eob in fi_file
                 .entries
                 .iter()
-                .zip(fl_file.entries.iter()).filter(|(fi,_)| fi.uncompressed_size != 0)
+                .zip(fl_file.entries.iter())
+                .filter(|(fi, _)| fi.uncompressed_size != 0)
                 .zip_longest(
                     fi_file
                         .entries
@@ -127,18 +128,18 @@ fn main() -> io::Result<()> {
                     CompressionTypeT::Lzss => {
                         let compressed_bytes =
                             read_bytes_from_file(&zzz_file, zzz_offset, compressed_size)?;
-                            write_bytes_to_file(&new_extract_path, &compressed_bytes)?;
-                    //     let result = MyLzss::decompress_stack(
-                    //         lzss::SliceReader::new(&compressed_bytes),
-                    //         lzss::VecWriter::with_capacity(zzz_size as usize),
-                    //     );
-                    //     match result {
-                    //         Ok(buffer) => write_bytes_to_file(&new_extract_path, &buffer)?,
-                    //         Err(e) => {
-                    //             eprintln!("lzss error: {}", e);
-                    //         }
-                    //     }
-                     }
+                        write_bytes_to_file(&new_extract_path, &compressed_bytes)?;
+                        //     let result = MyLzss::decompress_stack(
+                        //         lzss::SliceReader::new(&compressed_bytes),
+                        //         lzss::VecWriter::with_capacity(zzz_size as usize),
+                        //     );
+                        //     match result {
+                        //         Ok(buffer) => write_bytes_to_file(&new_extract_path, &buffer)?,
+                        //         Err(e) => {
+                        //             eprintln!("lzss error: {}", e);
+                        //         }
+                        //     }
+                    }
                     CompressionTypeT::Lz4 => {}
                 };
             }
