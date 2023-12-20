@@ -1,9 +1,12 @@
+mod lzss;
+
 pub use oviiirs_archive::{
     display_directory_info, filter_valid_directories, find_archives, generate_new_filename,
     generate_new_filename_custom_extension, generate_zzz_filename, load_config_from_file,
-    process_files_in_directory, read_bytes_from_file, read_data_from_file,
-    read_fi_entries_from_file, read_fl_entries_from_file, save_config, write_bytes_to_file,
-    CompressionTypeT, DirectorySelection,
+    process_files_in_directory, read_bytes_from_file,
+    read_compressed_bytes_from_file_at_offset_lzss, read_data_from_file, read_fi_entries_from_file,
+    read_fl_entries_from_file, save_config, write_bytes_to_file, CompressionTypeT,
+    DirectorySelection,
 };
 
 pub mod oviiirs_archive {
@@ -26,11 +29,6 @@ pub mod oviiirs_archive {
     use typed_path::Utf8Path;
     use typed_path::Utf8TypedPath;
     use typed_path::Utf8WindowsPath;
-    
-    //use lzss::Lzss;
-    //const EI: usize = 11;
-    //const EJ: usize = 4;
-    //type MyLzss = Lzss<EI, EJ, 0x00, { 1 << EI }, { 2 << EI }>;
 
     #[derive(Debug, Serialize, Deserialize, Default)]
     pub struct FI {
@@ -731,6 +729,27 @@ pub mod oviiirs_archive {
         };
 
         new_filename
+    }
+
+    pub fn read_compressed_bytes_from_file_at_offset_lzss(
+        file_path: &str,
+        offset: u64,
+    ) -> io::Result<Vec<u8>> {
+        // Open the file
+        let mut file = File::open(file_path)?;
+
+        // Move to the specified offset
+        file.seek(SeekFrom::Start(offset))?;
+
+        // Deserialize a u32 from the file
+        let size_as_bytes: [u8; 4] = bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
+        let size = u32::from_le_bytes(size_as_bytes);
+
+        // Read the specified number of bytes following the offset
+        let mut buffer = vec![0; size as usize];
+        file.read_exact(&mut buffer)?;
+
+        Ok(buffer)
     }
 
     // Function to read bytes from a file at a specified offset
