@@ -32,6 +32,7 @@ pub mod lzss {
     }
 
     impl CompressImpl {
+        #[allow(dead_code)]
         fn new() -> Self {
             let left_side = vec![NOT_USED; N_PLUS2];
             let right_side = vec![NOT_USED; RIGHT_SIDE_SIZE];
@@ -229,12 +230,12 @@ pub mod lzss {
             result
         }
     }
-
+    #[allow(dead_code)]
     pub fn compress(src: &[u8]) -> Vec<u8> {
         let mut compress_impl = CompressImpl::new();
         compress_impl.compress(src)
     }
-
+    #[allow(dead_code)]
     pub fn decompress(src: &[u8], dst_size: usize) -> Vec<u8> {
         let mut dst = Vec::<u8>::new();
         if dst_size > 0 {
@@ -276,7 +277,7 @@ pub mod lzss {
                 }
                 let mut count = next() as u32;
                 let offset = (offset as u32 | ((count as u32 & OFFSET_MASK) << 4)) as u32;
-                count = ((count & COUNT_MASK) + THRESHOLD as u32);
+                count = (count & COUNT_MASK) + THRESHOLD as u32;
 
                 for k in 0..=count {
                     let current = text_buf[(offset as usize + k as usize) & N_MINUS1];

@@ -55,121 +55,136 @@ fn main() -> io::Result<()> {
         //begin create toml of data
         save_config(&data, &generate_zzz_filename(&zzz_file))?;
 
-        for archive in archives {
-            save_config(
-                &archive,
-                &generate_new_filename_custom_extension(
-                    &Utf8WindowsPath::new(&archive.fi.string_data),
-                    "fiflfs_zzz",
-                ),
-            )?;
-            let fi_file = read_fi_entries_from_file(&archive.fi, &zzz_file)?;
-            save_config(&fi_file, &generate_new_filename(&archive.fi.string_data))?;
-
-            let fl_file = read_fl_entries_from_file(&archive.fl, &zzz_file)?;
-            save_config(&fl_file, &generate_new_filename(&&archive.fl.string_data))?;
-
-            for fi_eob in fi_file
-                .entries
+        extract_archives(
+            archives
                 .iter()
-                .zip(fl_file.entries.iter())
-                .filter(|(fi, _)| fi.uncompressed_size != 0)
-                .zip_longest(
-                    fi_file
-                        .entries
-                        .iter()
-                        .skip(1)
-                        .filter(|fi| fi.uncompressed_size != 0),
-                )
-            {
-                let (fi, fl) = fi_eob.as_ref().left().unwrap();
+                .filter(|&item| item.archive_type != ArchiveType::Field),
+        )?;
 
-                let compressed_size: u64 = match fi_eob.as_ref().right() {
-                    Some(next_fi) => next_fi.offset as u64 - fi.offset as u64,
-                    None => archive.fs.file_size as u64 - fi.offset as u64,
-                };
-
-                let zzz_offset = archive.fs.file_offset + fi.offset as u64;
-                let zzz_size = fi.uncompressed_size as u64;
-                let windows_file_path = Utf8WindowsPath::new(fl);
-                let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
-                    Ok(p) => p,
-                    Err(_) => windows_file_path,
-                };
-                let extract_path = Utf8NativePath::new("test");
-                let native_file_path =
-                    relative_windows_file_path.with_encoding::<Utf8NativeEncoding>();
-                //let file_path = Path::new(native_file_path.as_str());
-                let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
-                println!("FI: {:?}", fi);
-                println!("FL: {:?}", fl);
-                println!(
-                    "zzz Offset: {}, zzz size {}, compressed size {}, relative path {}",
-                    zzz_offset,
-                    zzz_size,
-                    compressed_size,
-                    new_extract_path.display()
-                );
-                println!("--------------------------");
-
-                // Create the directories for the path
-                if let Some(parent) = new_extract_path.parent() {
-                    if let Err(err) = fs::create_dir_all(parent) {
-                        eprintln!("Error creating directories: {}", err);
-                    } else {
-                        //println!("Directories created successfully");
-                    }
-                }
-
-                match fi.compression_type {
-                    CompressionTypeT::None => {
-                        let raw_file_bytes = read_bytes_from_file(&zzz_file, zzz_offset, zzz_size)?;
-                        write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
-                    }
-                    CompressionTypeT::Lzss => {
-                        // if new_extract_path
-                        //     .extension()
-                        //     .is_some_and(|value| value.eq_ignore_ascii_case("tim"))
-                        // {
-                        //     let compressed_bytes =
-                        //         read_bytes_from_file(&zzz_file, zzz_offset, compressed_size)?;
-                        //     write_bytes_to_file(&new_extract_path, &compressed_bytes)?;
-
-                        let decompressed_bytes = lzss::decompress(
-                            &read_compressed_bytes_from_file_at_offset_lzss(&zzz_file, zzz_offset)?,
-                            fi.uncompressed_size as usize,
-                        );
-                        write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
-                        //}
-                        // use lzss::Lzss;
-                        // const EI: usize = 11;
-                        // const EJ: usize = 4;
-                        // type MyLzss = Lzss<EI, EJ, 0x00, { 1 << EI }, { 2 << EI }>;
-                        // let result = MyLzss::decompress_stack(
-                        //     lzss::SliceReader::new(&compressed_bytes),
-                        //     lzss::VecWriter::with_capacity(zzz_size as usize),
-                        // );
-                        // match result {
-                        //     Ok(buffer) => write_bytes_to_file(&new_extract_path, &buffer)?,
-                        //     Err(e) => {
-                        //         eprintln!("lzss error: {}", e);
-                        //     }
-                        // }
-                    }
-                    CompressionTypeT::Lz4 => {
-                        let decompressed_bytes = lz4_decompress(
-                            &read_compressed_bytes_from_file_at_offset_lz4(&zzz_file, zzz_offset)?,
-                            fi.uncompressed_size as usize,
-                        )?;
-                        write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
-                    }
-                };
+        let result = archives
+            .iter()
+            .find(|&item| item.archive_type == ArchiveType::Field);
+        match result {
+            Some(found_element) => {
+                // Do something with the found element
+                println!("Found: {:?}", found_element);
+                let field_archives = find_archives_field(found_element)?;
+                extract_archives(field_archives.iter())?;
             }
-            //let _fs_entry = &archive.fs;
-            // Do something with fs_entry
+            None => {
+                // Handle the case when no element with ArchiveType::Field is found
+                println!("Element with ArchiveType::Field not found");
+            }
         }
-        //end dump toml of data
     }
 
+    Ok(())
+}
+
+// fn extract_archives<I>(archives: I) -> io::Result<()>
+// where
+//     I: Iterator<Item = FIFLFSZZZ>,
+
+fn extract_archives<'a, I>(archives: I) -> io::Result<()>
+where
+    I: Iterator<Item = &'a FIFLFSZZZ>,
+{
+    for archive in archives {
+        save_config(
+            &archive,
+            &generate_new_filename_custom_extension(
+                &Utf8WindowsPath::new(&archive.fi.string_data),
+                "fiflfs_zzz",
+            ),
+        )?;
+        let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
+        save_config(&fi_file, &generate_new_filename(&archive.fi.string_data))?;
+
+        let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
+        save_config(&fl_file, &generate_new_filename(&&archive.fl.string_data))?;
+
+        for fi_eob in fi_file
+            .entries
+            .iter()
+            .zip(fl_file.entries.iter())
+            .filter(|(fi, _)| fi.uncompressed_size != 0)
+            .zip_longest(
+                fi_file
+                    .entries
+                    .iter()
+                    .skip(1)
+                    .filter(|fi| fi.uncompressed_size != 0),
+            )
+        {
+            let (fi, fl) = fi_eob.as_ref().left().unwrap();
+
+            let compressed_size: u64 = match fi_eob.as_ref().right() {
+                Some(next_fi) => next_fi.offset as u64 - fi.offset as u64,
+                None => archive.fs.file_size as u64 - fi.offset as u64,
+            };
+
+            let zzz_offset = archive.fs.file_offset + fi.offset as u64;
+            let zzz_size = fi.uncompressed_size as u64;
+            let windows_file_path = Utf8WindowsPath::new(fl);
+            let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
+                Ok(p) => p,
+                Err(_) => windows_file_path,
+            };
+            let extract_path = Utf8NativePath::new("test");
+            let native_file_path = relative_windows_file_path.with_encoding::<Utf8NativeEncoding>();
+            //let file_path = Path::new(native_file_path.as_str());
+            let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
+            println!("FI: {:?}", fi);
+            println!("FL: {:?}", fl);
+            println!(
+                "zzz Offset: {}, zzz size {}, compressed size {}, relative path {}",
+                zzz_offset,
+                zzz_size,
+                compressed_size,
+                new_extract_path.display()
+            );
+            println!("--------------------------");
+
+            // Create the directories for the path
+            if let Some(parent) = new_extract_path.parent() {
+                if let Err(err) = fs::create_dir_all(parent) {
+                    eprintln!("Error creating directories: {}", err);
+                } else {
+                    //println!("Directories created successfully");
+                }
+            }
+
+            match fi.compression_type {
+                CompressionTypeT::None => {
+                    let raw_file_bytes =
+                        read_bytes_from_file(&archive.file_path, zzz_offset, zzz_size)?;
+                    write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
+                }
+                CompressionTypeT::Lzss => {
+                    let decompressed_bytes = lzss::decompress(
+                        &read_compressed_bytes_from_file_at_offset_lzss(
+                            &archive.file_path,
+                            zzz_offset,
+                        )?,
+                        fi.uncompressed_size as usize,
+                    );
+                    write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
+                }
+                CompressionTypeT::Lz4 => {
+                    let decompressed_bytes = lz4_decompress(
+                        &read_compressed_bytes_from_file_at_offset_lz4(
+                            &archive.file_path,
+                            zzz_offset,
+                        )?,
+                        fi.uncompressed_size as usize,
+                    )?;
+                    write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
+                }
+            };
+        }
+        //let _fs_entry = &archive.fs;
+        // Do something with fs_entry
+    }
+    //end dump toml of data
     Ok(())
 }

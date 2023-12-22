@@ -1,13 +1,12 @@
-mod lzss;
 pub use oviiirs_archive::{
-    display_directory_info, filter_valid_directories, find_archives, generate_new_filename,
-    generate_new_filename_custom_extension, generate_zzz_filename, load_config_from_file,
-    lz4_decompress, process_files_in_directory, read_bytes_from_file,
+    display_directory_info, filter_valid_directories, find_archives, find_archives_field,
+    generate_new_filename, generate_new_filename_custom_extension, generate_zzz_filename,
+    load_config_from_file, lz4_decompress, process_files_in_directory, read_bytes_from_file,
     read_compressed_bytes_from_file_at_offset_lz4, read_compressed_bytes_from_file_at_offset_lzss,
     read_data_from_file, read_fi_entries_from_file, read_fl_entries_from_file, save_config,
     write_bytes_to_file, CompressionTypeT, DirectorySelection,
 };
-
+mod lzss;
 pub mod oviiirs_archive {
     use bincode;
     use core::fmt;
@@ -18,6 +17,7 @@ pub mod oviiirs_archive {
     use std::io;
     use std::io::BufRead;
     use std::io::BufReader;
+    use std::io::Cursor;
     use std::io::Read;
     use std::io::Seek;
     use std::io::SeekFrom;
@@ -42,7 +42,7 @@ pub mod oviiirs_archive {
         pub entries: Vec<FI>,
     }
 
-    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
     pub enum CompressionTypeT {
         None,
         Lzss,
@@ -98,7 +98,7 @@ pub mod oviiirs_archive {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
     pub enum ArchiveType {
         None,
         Battle,
@@ -198,6 +198,7 @@ pub mod oviiirs_archive {
         pub string_data: String,
         pub file_offset: u64,
         pub file_size: u32,
+        pub compression_type: CompressionTypeT, //this doesn't exist in the ZZZ file but it does in FIFLFS.
     }
 
     #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -515,6 +516,7 @@ pub mod oviiirs_archive {
 
         // Deserialize the entries
         let mut entries = Vec::with_capacity(count as usize);
+        let compression_type = CompressionTypeT::None;
         for _ in 0..count {
             let string_length_bytes: [u8; 4] =
                 bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
@@ -533,6 +535,7 @@ pub mod oviiirs_archive {
                 string_data,
                 file_offset,
                 file_size,
+                compression_type,
             });
         }
 
@@ -562,28 +565,40 @@ pub mod oviiirs_archive {
 
     pub fn read_fl_entries_from_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FL> {
         // Open the file specified by file_path for reading
-        let file = File::open(file_path)?;
+        let buffer_bytes = match entry.compression_type {
+            CompressionTypeT::None => {
+                read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?
+            }
+            CompressionTypeT::Lzss => crate::lzss::decompress(
+                &read_compressed_bytes_from_file_at_offset_lzss(&file_path, entry.file_offset)?,
+                entry.file_size as usize,
+            ),
+            CompressionTypeT::Lz4 => lz4_decompress(
+                &read_compressed_bytes_from_file_at_offset_lz4(&file_path, entry.file_offset)?,
+                entry.file_size as usize,
+            )?,
+        };
+
+        let cursor = Cursor::new(buffer_bytes);
 
         // Initialize a BufReader for efficient reading
-        let mut reader = BufReader::new(file);
+        let mut reader = BufReader::new(cursor);
 
         // Create a FL struct to hold the entries
         let mut fl = FL::default();
 
         fl.file_path = entry.string_data.clone();
 
-        // Seek to the file_offset
-        reader.seek(SeekFrom::Start(entry.file_offset))?;
-
         // Read strings separated by newlines up to (file_offset + file_size)
         let mut buffer = String::new();
-        let mut bytes_read = u64::default();
 
-        while bytes_read < entry.file_size as u64 {
+        loop {
             match reader.read_line(&mut buffer) {
                 Ok(bytes_of_line) => {
-                    // Update the number of bytes read
-                    bytes_read += bytes_of_line as u64;
+                    if bytes_of_line == 0
+                    {
+                        break;
+                    }
                 }
                 Err(error) => eprintln!("error: {error}"),
             }
@@ -602,7 +617,19 @@ pub mod oviiirs_archive {
         // Create a FIfile struct to hold the entries
         let mut fifile = FIfile::default();
         fifile.file_path = entry.string_data.clone();
-        let buffer = read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?;
+        let buffer = match entry.compression_type {
+            CompressionTypeT::None => {
+                read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?
+            }
+            CompressionTypeT::Lzss => crate::lzss::decompress(
+                &read_compressed_bytes_from_file_at_offset_lzss(&file_path, entry.file_offset)?,
+                entry.file_size as usize,
+            ),
+            CompressionTypeT::Lz4 => lz4_decompress(
+                &read_compressed_bytes_from_file_at_offset_lz4(&file_path, entry.file_offset)?,
+                entry.file_size as usize,
+            )?,
+        };
 
         let mut cursor = io::Cursor::new(buffer);
 
@@ -645,6 +672,39 @@ pub mod oviiirs_archive {
         };
 
         new_filename
+    }
+
+    pub fn find_archives_field(archive: &FIFLFSZZZ) -> io::Result<Vec<FIFLFSZZZ>> {
+        let mut archives: HashMap<String, FIFLFSZZZTemp> = HashMap::new();
+
+        let file_path = &archive.file_path;
+
+        let fi_file = read_fi_entries_from_file(&archive.fi, &file_path)?;
+
+        let fl_file = read_fl_entries_from_file(&archive.fl, &file_path)?;
+
+        let entries = fi_file.entries.iter().zip(&fl_file.entries);
+
+        for entry in entries {
+            let prefix = get_prefix(&entry.1);
+            archives
+                .entry(prefix)
+                .or_insert_with(FIFLFSZZZTemp::default)
+                .push(ZZZEntry {
+                    string_length: entry.1.len() as u32,
+                    string_data: entry.1.clone(),
+                    file_offset: entry.0.offset as u64 + archive.fs.file_offset,
+                    file_size: entry.0.uncompressed_size,
+                    compression_type: entry.0.compression_type,
+                });
+        }
+
+        Ok(archives
+            .values()
+            .cloned()
+            .filter(|group| group.all_some())
+            .map(|group| group.move_into_final(file_path.clone()))
+            .collect())
     }
 
     pub fn find_archives(entries: Vec<ZZZEntry>, file_path: &String) -> Vec<FIFLFSZZZ> {
@@ -768,7 +828,8 @@ pub mod oviiirs_archive {
 
         file.seek(SeekFrom::Current(4))?;
 
-        let uncompressed_size_as_bytes: [u8; 4] = bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
+        let uncompressed_size_as_bytes: [u8; 4] =
+            bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
         let _uncompressed_size = u32::from_le_bytes(uncompressed_size_as_bytes);
 
         //file.seek(SeekFrom::Current(8))?;
@@ -798,8 +859,7 @@ pub mod oviiirs_archive {
 
         Ok(buffer)
     }
-    pub fn lz4_decompress(input_data: &[u8], size:usize) -> Result<Vec<u8>, io::Error> {
-        
-        lz4::block::decompress(&input_data,Some(size as i32))
+    pub fn lz4_decompress(input_data: &[u8], size: usize) -> Result<Vec<u8>, io::Error> {
+        lz4::block::decompress(&input_data, Some(size as i32))
     }
 }
