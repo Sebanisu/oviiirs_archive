@@ -156,7 +156,13 @@ fn main() -> io::Result<()> {
                         //     }
                         // }
                     }
-                    CompressionTypeT::Lz4 => {}
+                    CompressionTypeT::Lz4 => {
+                        let decompressed_bytes = lz4_decompress(
+                            &read_compressed_bytes_from_file_at_offset_lz4(&zzz_file, zzz_offset)?,
+                            fi.uncompressed_size as usize,
+                        )?;
+                        write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
+                    }
                 };
             }
             //let _fs_entry = &archive.fs;

@@ -1,12 +1,11 @@
 mod lzss;
-
 pub use oviiirs_archive::{
     display_directory_info, filter_valid_directories, find_archives, generate_new_filename,
     generate_new_filename_custom_extension, generate_zzz_filename, load_config_from_file,
-    process_files_in_directory, read_bytes_from_file,
-    read_compressed_bytes_from_file_at_offset_lzss, read_data_from_file, read_fi_entries_from_file,
-    read_fl_entries_from_file, save_config, write_bytes_to_file, CompressionTypeT,
-    DirectorySelection,
+    lz4_decompress, process_files_in_directory, read_bytes_from_file,
+    read_compressed_bytes_from_file_at_offset_lz4, read_compressed_bytes_from_file_at_offset_lzss,
+    read_data_from_file, read_fi_entries_from_file, read_fl_entries_from_file, save_config,
+    write_bytes_to_file, CompressionTypeT, DirectorySelection,
 };
 
 pub mod oviiirs_archive {
@@ -752,6 +751,35 @@ pub mod oviiirs_archive {
         Ok(buffer)
     }
 
+    pub fn read_compressed_bytes_from_file_at_offset_lz4(
+        file_path: &str,
+        offset: u64,
+    ) -> io::Result<Vec<u8>> {
+        // Open the file
+        let mut file = File::open(file_path)?;
+
+        // Move to the specified offset
+        file.seek(SeekFrom::Start(offset))?;
+
+        // Deserialize a u32 from the file
+        let compressed_size_as_bytes: [u8; 4] =
+            bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
+        let compressed_size = u32::from_le_bytes(compressed_size_as_bytes) - 8;
+
+        file.seek(SeekFrom::Current(4))?;
+
+        let uncompressed_size_as_bytes: [u8; 4] = bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
+        let _uncompressed_size = u32::from_le_bytes(uncompressed_size_as_bytes);
+
+        //file.seek(SeekFrom::Current(8))?;
+
+        // Read the specified number of bytes following the offset
+        let mut buffer = vec![0; compressed_size as usize];
+        file.read_exact(&mut buffer)?;
+
+        Ok(buffer)
+    }
+
     // Function to read bytes from a file at a specified offset
     pub fn read_bytes_from_file(
         file_path: &str,
@@ -765,9 +793,13 @@ pub mod oviiirs_archive {
         file.seek(SeekFrom::Start(offset))?;
 
         // Read the specified number of bytes
-        let mut buffer = vec![0; size as usize];
+        let mut buffer = vec![0u8; size as usize];
         file.read_exact(&mut buffer)?;
 
         Ok(buffer)
+    }
+    pub fn lz4_decompress(input_data: &[u8], size:usize) -> Result<Vec<u8>, io::Error> {
+        
+        lz4::block::decompress(&input_data,Some(size as i32))
     }
 }
