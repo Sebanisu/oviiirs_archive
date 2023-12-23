@@ -2,9 +2,11 @@ pub use oviiirs_archive::{
     display_directory_info, filter_valid_directories, find_archives, find_archives_field,
     generate_new_filename, generate_new_filename_custom_extension, generate_zzz_filename,
     load_config_from_file, lz4_decompress, process_files_in_directory, read_bytes_from_file,
-    read_compressed_bytes_from_file_at_offset_lz4, read_compressed_bytes_from_file_at_offset_lzss,
-    read_data_from_file, read_fi_entries_from_file, read_fl_entries_from_file, save_config,
-    write_bytes_to_file, CompressionTypeT, DirectorySelection,
+    read_bytes_from_memory, read_compressed_bytes_from_file_at_offset_lz4,
+    read_compressed_bytes_from_file_at_offset_lzss,
+    read_compressed_bytes_from_memory_at_offset_lzss, read_data_from_file,
+    read_fi_entries_from_file, read_fl_entries_from_file, save_config, write_bytes_to_file,
+    CompressionTypeT, DirectorySelection,
 };
 mod lzss;
 pub mod oviiirs_archive {
@@ -595,8 +597,7 @@ pub mod oviiirs_archive {
         loop {
             match reader.read_line(&mut buffer) {
                 Ok(bytes_of_line) => {
-                    if bytes_of_line == 0
-                    {
+                    if bytes_of_line == 0 {
                         break;
                     }
                 }
@@ -790,6 +791,25 @@ pub mod oviiirs_archive {
         new_filename
     }
 
+    pub fn read_compressed_bytes_from_memory_at_offset_lzss(
+        input_data: &[u8],
+        offset: usize,
+    ) -> Vec<u8> {
+        // Ensure that the offset is within bounds
+        if offset >= input_data.len() {
+            return Vec::new(); // Return an empty vector if offset is out of bounds
+        }
+        // Deserialize a u32 from the file
+        let compressed_size_as_bytes: [u8; 4] =
+            bincode::deserialize(&input_data[offset..(offset + 4)]).unwrap();
+        let compressed_size = u32::from_le_bytes(compressed_size_as_bytes) as usize;
+
+        // Calculate the end index based on offset and size
+        let start_index = offset + 4;
+        let end_index = start_index + compressed_size.min(input_data.len() - start_index);
+        input_data[start_index..end_index].to_vec()
+    }
+
     pub fn read_compressed_bytes_from_file_at_offset_lzss(
         file_path: &str,
         offset: u64,
@@ -809,6 +829,26 @@ pub mod oviiirs_archive {
         file.read_exact(&mut buffer)?;
 
         Ok(buffer)
+    }
+
+    pub fn read_compressed_bytes_from_memory_at_offset_lz4(
+        input_data: &[u8],
+        offset: usize,
+    ) -> Vec<u8> {
+        // Ensure that the offset is within bounds
+        if offset >= input_data.len() {
+            return Vec::new(); // Return an empty vector if offset is out of bounds
+        }
+        // Deserialize a u32 from the file
+        let compressed_size_as_bytes: [u8; 4] =
+            bincode::deserialize(&input_data[offset..(offset + 4)]).unwrap();
+        let compressed_size = u32::from_le_bytes(compressed_size_as_bytes) as usize - 8;
+
+        // Calculate the end index based on offset and size
+        let start_index = offset + 12;
+        let end_index = start_index + compressed_size.min(input_data.len() - start_index);
+
+        input_data[12..end_index].to_vec()
     }
 
     pub fn read_compressed_bytes_from_file_at_offset_lz4(
@@ -859,6 +899,20 @@ pub mod oviiirs_archive {
 
         Ok(buffer)
     }
+
+    pub fn read_bytes_from_memory(input_data: &[u8], offset: usize, size: usize) -> Vec<u8> {
+        // Ensure that the offset is within bounds
+        if offset >= input_data.len() {
+            return Vec::new(); // Return an empty vector if offset is out of bounds
+        }
+
+        // Calculate the end index based on offset and size
+        let end_index = offset + size.min(input_data.len() - offset);
+
+        // Create a Vec<u8> from the sliced portion
+        input_data[offset..end_index].to_vec()
+    }
+
     pub fn lz4_decompress(input_data: &[u8], size: usize) -> Result<Vec<u8>, io::Error> {
         lz4::block::decompress(&input_data, Some(size as i32))
     }
