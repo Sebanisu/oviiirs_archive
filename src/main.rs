@@ -1,4 +1,4 @@
-use std::{fs, io, path::PathBuf, process::exit};
+use std::{collections::HashSet, fs, io, path::PathBuf, process::exit};
 
 use itertools::Itertools;
 use oviiirs_archive::oviiirs_archive::*;
@@ -52,6 +52,20 @@ fn main() -> io::Result<()> {
         let data = read_data_from_file(&zzz_file)?;
         let archives = find_archives(data.entries.clone(), &zzz_file);
 
+        let mut archive_strings = HashSet::new();
+        for archive in &archives {
+            archive_strings.insert(&archive.fi.string_data);
+            archive_strings.insert(&archive.fs.string_data);
+            archive_strings.insert(&archive.fl.string_data);
+        }
+
+        let filtered_entries = data
+            .entries
+            .iter()
+            .filter(|&entry| !archive_strings.contains(&entry.string_data));
+
+        extract_zzz_files(filtered_entries, &zzz_file)?;
+
         //begin create toml of data
         save_config(&data, &generate_zzz_filename(&zzz_file))?;
 
@@ -81,9 +95,41 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-// fn extract_archives<I>(archives: I) -> io::Result<()>
-// where
-//     I: Iterator<Item = FIFLFSZZZ>,
+fn extract_zzz_files<'a, I>(entries: I, file_path: &String) -> io::Result<()>
+where
+    I: Iterator<Item = &'a ZZZEntry>,
+{
+    for entry in entries {
+        let windows_file_path = Utf8WindowsPath::new(&entry.string_data);
+        let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
+            Ok(p) => p,
+            Err(_) => windows_file_path,
+        };
+        let extract_path = Utf8NativePath::new("test");
+        let native_file_path = relative_windows_file_path.with_encoding::<Utf8NativeEncoding>();
+        //let file_path = Path::new(native_file_path.as_str());
+        let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
+        let decompressed_bytes =
+            read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?;
+        println!(
+            "zzz Offset: {}, zzz size {}, relative path {}",
+            entry.file_offset,
+            entry.file_size,
+            new_extract_path.display()
+        );
+        println!("--------------------------");
+        // Create the directories for the path
+        if let Some(parent) = new_extract_path.parent() {
+            if let Err(err) = fs::create_dir_all(parent) {
+                eprintln!("Error creating directories: {}", err);
+            } else {
+                //println!("Directories created successfully");
+            }
+        }
+        write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
+    }
+    Ok(())
+}
 
 fn extract_archives<'a, I>(archives: I) -> io::Result<()>
 where
