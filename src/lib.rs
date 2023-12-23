@@ -451,7 +451,7 @@ pub mod oviiirs_archive {
         }
     }
 
-    pub fn save_config<T>(config: &T, filename: &String) -> Result<(), std::io::Error>
+    pub fn save_config<T>(config: &T, filename: &str) -> Result<(), std::io::Error>
     where
         T: Serialize,
     {
@@ -618,6 +618,8 @@ pub mod oviiirs_archive {
         // Create a FIfile struct to hold the entries
         let mut fifile = FIfile::default();
         fifile.file_path = entry.string_data.clone();
+        
+        // Technically you don't need to always read the whole fi into memory except when it or it's parents are compressed. Just a simplication to load it into memory. You could always calculate the position from the fl file. Index*12 = the offset of an entry.
         let buffer = match entry.compression_type {
             CompressionTypeT::None => {
                 read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?

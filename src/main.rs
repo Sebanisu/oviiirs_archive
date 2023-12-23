@@ -1,9 +1,8 @@
 use std::{collections::HashSet, fs, io, path::PathBuf, process::exit};
 
-use itertools::Itertools;
 use oviiirs_archive::oviiirs_archive::*;
 mod lzss;
-use typed_path::{Utf8NativeEncoding, Utf8NativePath, Utf8WindowsPath};
+use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
 
 fn main() -> io::Result<()> {
     let config_path: String = "config.toml".to_string();
@@ -67,7 +66,12 @@ fn main() -> io::Result<()> {
         extract_zzz_files(filtered_entries, &zzz_file)?;
 
         //begin create toml of data
-        save_config(&data, &generate_zzz_filename(&zzz_file))?;
+        let native_file_path = generate_relative_path(&generate_zzz_filename(&zzz_file));
+        let extract_path = generate_native_path("toml_dumps");
+        let zzz_toml_path = extract_path.join(native_file_path).to_string();
+        create_directories(&PathBuf::from(&zzz_toml_path))?;
+        save_config(&data, zzz_toml_path.as_str())?;
+        dump_archives_toml(archives.iter())?;
 
         extract_archives(
             archives
@@ -84,6 +88,7 @@ fn main() -> io::Result<()> {
                 println!("Found: {:?}", found_element);
                 let field_archives = find_archives_field(found_element)?;
                 extract_archives(field_archives.iter())?;
+                dump_archives_toml(field_archives.iter())?;
             }
             None => {
                 // Handle the case when no element with ArchiveType::Field is found
@@ -100,33 +105,57 @@ where
     I: Iterator<Item = &'a ZZZEntry>,
 {
     for entry in entries {
-        let windows_file_path = Utf8WindowsPath::new(&entry.string_data);
-        let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
-            Ok(p) => p,
-            Err(_) => windows_file_path,
-        };
-        let extract_path = Utf8NativePath::new("test");
-        let native_file_path = relative_windows_file_path.with_encoding::<Utf8NativeEncoding>();
-        //let file_path = Path::new(native_file_path.as_str());
+        let native_file_path = generate_relative_path(&entry.string_data);
+        let extract_path = generate_native_path("test");
         let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
+        create_directories(&new_extract_path)?;
+
         let decompressed_bytes =
             read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?;
+
         println!(
-            "zzz Offset: {}, zzz size {}, relative path {}",
+            "file offset: {}, file size {}, relative path {}",
             entry.file_offset,
             entry.file_size,
             new_extract_path.display()
         );
         println!("--------------------------");
-        // Create the directories for the path
-        if let Some(parent) = new_extract_path.parent() {
-            if let Err(err) = fs::create_dir_all(parent) {
-                eprintln!("Error creating directories: {}", err);
-            } else {
-                //println!("Directories created successfully");
-            }
-        }
         write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
+    }
+    Ok(())
+}
+
+fn dump_archives_toml<'a, I>(archives: I) -> io::Result<()>
+where
+    I: Iterator<Item = &'a FIFLFSZZZ>,
+{
+    let extract_path = generate_native_path("toml_dumps");
+    for archive in archives {
+        {
+            let native_file_path = generate_relative_path(&generate_new_filename_custom_extension(
+                &Utf8WindowsPath::new(&archive.fi.string_data),
+                "fiflfs_zzz",
+            ));
+            let toml_path = extract_path.join(native_file_path).to_string();
+            create_directories(&PathBuf::from(&toml_path))?;
+            save_config(&archive, &toml_path)?;
+        }
+        {
+            let native_file_path =
+                generate_relative_path(&generate_new_filename(&archive.fi.string_data));
+            let toml_path = extract_path.join(native_file_path).to_string();
+            create_directories(&PathBuf::from(&toml_path))?;
+            let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
+            save_config(&fi_file, &toml_path)?;
+        }
+        {
+            let native_file_path =
+                generate_relative_path(&generate_new_filename(&&archive.fl.string_data));
+            let toml_path = extract_path.join(native_file_path).to_string();
+            create_directories(&PathBuf::from(&toml_path))?;
+            let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
+            save_config(&fl_file, &toml_path)?;
+        }
     }
     Ok(())
 }
@@ -136,19 +165,11 @@ where
     I: Iterator<Item = &'a FIFLFSZZZ>,
 {
     for archive in archives {
-        save_config(
-            &archive,
-            &generate_new_filename_custom_extension(
-                &Utf8WindowsPath::new(&archive.fi.string_data),
-                "fiflfs_zzz",
-            ),
-        )?;
         let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
-        save_config(&fi_file, &generate_new_filename(&archive.fi.string_data))?;
 
         let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
-        save_config(&fl_file, &generate_new_filename(&&archive.fl.string_data))?;
 
+        // Technically you don't need to always read the whole fs into memory except when it or it's parents are compressed. Just a simplication to load it into memory.
         let fs_bytes = match archive.fs.compression_type {
             CompressionTypeT::None => read_bytes_from_file(
                 &archive.file_path,
@@ -171,68 +192,43 @@ where
             )?,
         };
 
-        for fi_eob in fi_file
+        for fi_fl in fi_file
             .entries
             .iter()
             .zip(fl_file.entries.iter())
             .filter(|(fi, _)| fi.uncompressed_size != 0)
-            .zip_longest(
-                fi_file
-                    .entries
-                    .iter()
-                    .skip(1)
-                    .filter(|fi| fi.uncompressed_size != 0),
-            )
         {
-            let (fi, fl) = fi_eob.as_ref().left().unwrap();
+            let (fi, fl) = fi_fl;
 
-            let compressed_size: u64 = match fi_eob.as_ref().right() {
-                Some(next_fi) => next_fi.offset as u64 - fi.offset as u64,
-                None => archive.fs.file_size as u64 - fi.offset as u64,
-            };
-
-            let zzz_offset = fi.offset as u64;
-            let zzz_size = fi.uncompressed_size as u64;
-            let windows_file_path = Utf8WindowsPath::new(fl);
-            let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
-                Ok(p) => p,
-                Err(_) => windows_file_path,
-            };
-            let extract_path = Utf8NativePath::new("test");
-            let native_file_path = relative_windows_file_path.with_encoding::<Utf8NativeEncoding>();
-            //let file_path = Path::new(native_file_path.as_str());
+            let native_file_path = generate_relative_path(&fl);
+            let extract_path = generate_native_path("test");
             let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
+            create_directories(&new_extract_path)?;
+
             println!("FI: {:?}", fi);
             println!("FL: {:?}", fl);
             println!(
-                "zzz Offset: {}, zzz size {}, compressed size {}, relative path {}",
-                zzz_offset,
-                zzz_size,
-                compressed_size,
+                "file offset: {}, file size {}, relative path {}",
+                fi.offset,
+                fi.uncompressed_size,
                 new_extract_path.display()
             );
             println!("--------------------------");
 
-            // Create the directories for the path
-            if let Some(parent) = new_extract_path.parent() {
-                if let Err(err) = fs::create_dir_all(parent) {
-                    eprintln!("Error creating directories: {}", err);
-                } else {
-                    //println!("Directories created successfully");
-                }
-            }
-
             match fi.compression_type {
                 CompressionTypeT::None => {
-                    let raw_file_bytes =
-                        read_bytes_from_memory(&fs_bytes, zzz_offset as usize, zzz_size as usize);
+                    let raw_file_bytes = read_bytes_from_memory(
+                        &fs_bytes,
+                        fi.offset as usize,
+                        fi.uncompressed_size as usize,
+                    );
                     write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
                 }
                 CompressionTypeT::Lzss => {
                     let decompressed_bytes = lzss::decompress(
                         &read_compressed_bytes_from_memory_at_offset_lzss(
                             &fs_bytes,
-                            zzz_offset as usize,
+                            fi.offset as usize,
                         ),
                         fi.uncompressed_size as usize,
                     );
@@ -242,7 +238,7 @@ where
                     let decompressed_bytes = lz4_decompress(
                         &read_compressed_bytes_from_memory_at_offset_lz4(
                             &fs_bytes,
-                            zzz_offset as usize,
+                            fi.offset as usize,
                         ),
                         fi.uncompressed_size as usize,
                     )?;
@@ -250,9 +246,34 @@ where
                 }
             };
         }
-        //let _fs_entry = &archive.fs;
-        // Do something with fs_entry
     }
     //end dump toml of data
     Ok(())
+}
+
+fn generate_relative_path(fl: &str) -> Utf8NativePathBuf {
+    let windows_file_path = Utf8WindowsPath::new(fl);
+    let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
+        Ok(p) => p,
+        Err(_) => windows_file_path,
+    };
+    relative_windows_file_path.with_encoding::<Utf8NativeEncoding>()
+}
+
+fn generate_native_path(outpath: &str) -> Utf8NativePathBuf {
+    match Utf8TypedPath::derive(outpath) {
+        Utf8TypedPath::Unix(p) => p.with_encoding::<Utf8NativeEncoding>(),
+        Utf8TypedPath::Windows(p) => p.with_encoding::<Utf8NativeEncoding>(),
+    }
+}
+
+fn create_directories(new_extract_path: &PathBuf) -> io::Result<()> {
+    match new_extract_path.parent() {
+        Some(parent) => fs::create_dir_all(parent),
+        None => {
+            // Handle the case where `new_extract_path.parent()` is `None`.
+            // You can choose to do nothing or add some error handling logic.
+            Ok(())
+        }
+    }
 }
