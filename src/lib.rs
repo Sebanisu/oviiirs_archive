@@ -643,8 +643,6 @@ pub mod oviiirs_archive {
                 }
                 Err(error) => eprintln!("error: {error}"),
             }
-            // Move the cursor back to the correct position after deserialization
-            //cursor.set_position(cursor.position() + (std::mem::size_of::<FI>() as u64));
         }
 
         Ok(fifile)
