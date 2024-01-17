@@ -243,36 +243,30 @@ where
             );
             println!("--------------------------");
 
-            match fi.compression_type {
-                CompressionTypeT::None => {
-                    let raw_file_bytes = read_bytes_from_memory(
+            let uncompressed_bytes = match fi.compression_type {
+                CompressionTypeT::None => read_bytes_from_memory(
+                    &fs_bytes,
+                    fi.offset as usize,
+                    fi.uncompressed_size as usize,
+                ),
+                CompressionTypeT::Lzss => lzss::decompress(
+                    &read_compressed_bytes_from_memory_at_offset_lzss(
                         &fs_bytes,
                         fi.offset as usize,
-                        fi.uncompressed_size as usize,
-                    );
-                    write_bytes_to_file(&new_extract_path, &raw_file_bytes)?;
-                }
-                CompressionTypeT::Lzss => {
-                    let decompressed_bytes = lzss::decompress(
-                        &read_compressed_bytes_from_memory_at_offset_lzss(
-                            &fs_bytes,
-                            fi.offset as usize,
-                        ),
-                        fi.uncompressed_size as usize,
-                    );
-                    write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
-                }
-                CompressionTypeT::Lz4 => {
-                    let decompressed_bytes = lz4_decompress(
-                        &read_compressed_bytes_from_memory_at_offset_lz4(
-                            &fs_bytes,
-                            fi.offset as usize,
-                        ),
-                        fi.uncompressed_size as usize,
-                    )?;
-                    write_bytes_to_file(&new_extract_path, &decompressed_bytes)?;
-                }
+                    ),
+                    fi.uncompressed_size as usize,
+                ),
+                CompressionTypeT::Lz4 => lz4_decompress(
+                    &read_compressed_bytes_from_memory_at_offset_lz4(
+                        &fs_bytes,
+                        fi.offset as usize,
+                    ),
+                    fi.uncompressed_size as usize,
+                )?,
             };
+            
+            write_bytes_to_file(&new_extract_path, &uncompressed_bytes)?;
+            
         }
     }
     //end dump toml of data
