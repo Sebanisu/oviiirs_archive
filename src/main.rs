@@ -181,56 +181,6 @@ where
     Ok(())
 }
 
-fn dump_archives_toml<'a, I>(archives: I) -> io::Result<()>
-where
-    I: Iterator<Item = &'a FIFLFSZZZ>,
-{
-    let extract_path = generate_native_path("toml_dumps");
-    for archive in archives {
-        {
-            let native_file_path = generate_relative_path(&generate_new_filename_custom_extension(
-                &Utf8WindowsPath::new(&archive.fi.string_data),
-                "fiflfs_zzz",
-            ));
-            let toml_path = extract_path.join(native_file_path).to_string();
-            create_directories(&PathBuf::from(&toml_path))?;
-            save_config(&archive, &toml_path)?;
-        }
-        {
-            let native_file_path =
-                generate_relative_path(&generate_new_filename(&archive.fi.string_data));
-            let toml_path = extract_path.join(native_file_path).to_string();
-            create_directories(&PathBuf::from(&toml_path))?;
-            // let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
-            // save_config(&fi_file, &toml_path)?;
-            // Check if data.fiflfs_files is None or the vector inside is empty
-
-            match archive.fi_file.as_ref() {
-                Some(fi_file) => {
-                    save_config(&fi_file, &toml_path)?;
-                }
-                None => {}
-            }
-        }
-        {
-            let native_file_path =
-                generate_relative_path(&generate_new_filename(&&archive.fl.string_data));
-            let toml_path = extract_path.join(native_file_path).to_string();
-            create_directories(&PathBuf::from(&toml_path))?;
-            // let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
-            // save_config(&fl_file, &toml_path)?;
-
-            match archive.fi_file.as_ref() {
-                Some(fi_file) => {
-                    save_config(&fi_file, &toml_path)?;
-                }
-                None => {}
-            }
-        }
-    }
-    Ok(())
-}
-
 fn extract_archives<'a, I>(archives: I) -> io::Result<()>
 where
     I: Iterator<Item = &'a FIFLFSZZZ>,
