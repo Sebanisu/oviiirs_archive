@@ -186,9 +186,16 @@ where
     I: Iterator<Item = &'a FIFLFSZZZ>,
 {
     for archive in archives {
-        let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
+        if archive.fi_file.is_none() || archive.fi_file.is_none()
+        {
+            continue;
+        }
+        //let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
 
-        let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
+        //let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
+
+        let fi_file = archive.fi_file.as_ref().unwrap();
+        let fl_file = archive.fl_file.as_ref().unwrap();
 
         // Technically you don't need to always read the whole fs into memory except when it or it's parents are compressed. Just a simplication to load it into memory.
         let fs_bytes = match archive.fs.compression_type {
