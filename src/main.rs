@@ -51,11 +51,11 @@ fn main() -> io::Result<()> {
 
     zzz_paths.iter().try_for_each(|path| -> io::Result<()> {
         let mut data = read_data_from_file(&path)?;
-    
+
         if data.fiflfs_files.is_none() || data.fiflfs_files.as_ref().unwrap().is_empty() {
             data.fiflfs_files
                 .get_or_insert_with(|| find_archives(data.entries.clone(), &path));
-    
+
             if let Some(archives) = data.fiflfs_files.as_ref() {
                 for archive in archives {
                     archive_strings.insert(archive.fi.string_data.clone());
@@ -63,12 +63,17 @@ fn main() -> io::Result<()> {
                     archive_strings.insert(archive.fl.string_data.clone());
                 }
             }
-    
+
             if let Some(archives) = data.fiflfs_files.as_mut() {
                 load_archives_fi_fl(archives.iter_mut())?;
-    
-                if let Some(field) = archives.iter_mut().find(|item| item.archive_type == ArchiveType::Field) {
-                    if field.field_archives.is_none() || field.field_archives.as_ref().unwrap().is_empty() {
+
+                if let Some(field) = archives
+                    .iter_mut()
+                    .find(|item| item.archive_type == ArchiveType::Field)
+                {
+                    if field.field_archives.is_none()
+                        || field.field_archives.as_ref().unwrap().is_empty()
+                    {
                         field.field_archives = Some(
                             field
                                 .field_archives
@@ -76,18 +81,17 @@ fn main() -> io::Result<()> {
                                 .map_or_else(|| find_archives_field(field), Ok)?,
                         );
                     }
-    
+
                     if let Some(field_archives) = field.field_archives.as_mut() {
                         load_archives_fi_fl(field_archives.iter_mut())?;
                     }
                 }
             }
         }
-    
+
         zzz_files.push(data);
         Ok(())
     })?;
-    
 
     //begin create toml of data
     let extract_path = generate_native_path("toml_dumps");
@@ -95,34 +99,35 @@ fn main() -> io::Result<()> {
     create_directories(&PathBuf::from(&toml_path))?;
     save_config(&zzz_files, &toml_path)?;
 
-
     zzz_files
-    .into_iter()
-    .try_for_each(|opt_zzz_file| -> io::Result<()> {
-        if let Some(zzz_file) = opt_zzz_file {
-            let filtered_entries = zzz_file
-                .entries
-                .iter()
-                .filter(|&entry| !archive_strings.contains(&entry.string_data));
-            extract_zzz_files(filtered_entries, &zzz_file.file_path)?;
+        .into_iter()
+        .try_for_each(|opt_zzz_file| -> io::Result<()> {
+            if let Some(zzz_file) = opt_zzz_file {
+                let filtered_entries = zzz_file
+                    .entries
+                    .iter()
+                    .filter(|&entry| !archive_strings.contains(&entry.string_data));
+                extract_zzz_files(filtered_entries, &zzz_file.file_path)?;
 
-            if let Some(archives) = zzz_file.fiflfs_files.as_ref() {
-                extract_archives(
-                    archives
+                if let Some(archives) = zzz_file.fiflfs_files.as_ref() {
+                    extract_archives(
+                        archives
+                            .iter()
+                            .filter(|&item| item.archive_type != ArchiveType::Field),
+                    )?;
+
+                    if let Some(field) = archives
                         .iter()
-                        .filter(|&item| item.archive_type != ArchiveType::Field),
-                )?;
-
-                if let Some(field) = archives.iter().find(|&item| item.archive_type == ArchiveType::Field) {
-                    if let Some(field_archives) = field.field_archives.as_ref() {
-                        extract_archives(field_archives.iter())?;
+                        .find(|&item| item.archive_type == ArchiveType::Field)
+                    {
+                        if let Some(field_archives) = field.field_archives.as_ref() {
+                            extract_archives(field_archives.iter())?;
+                        }
                     }
                 }
             }
-        }
-        Ok(())
-    })?;
-
+            Ok(())
+        })?;
 
     Ok(())
 }
