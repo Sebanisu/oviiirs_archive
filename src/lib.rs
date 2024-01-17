@@ -31,14 +31,52 @@ pub mod oviiirs_archive {
     use typed_path::Utf8TypedPath;
     use typed_path::Utf8WindowsPath;
 
-    #[derive(Debug, Serialize, Deserialize, Default)]
+    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+    pub struct ZZZfiles {
+        pub main: Option<ZZZHeader>,
+        pub other: Option<ZZZHeader>,
+    }
+
+    impl ZZZfiles {
+        pub fn push(&mut self, entry: ZZZHeader) -> bool {
+            let file_path = Path::new(&entry.file_path);
+            if let Some(extension) = file_path.extension() {
+                if extension == "zzz" {
+                    if let Some(stem) = file_path.file_stem() {
+                        match stem.to_str() {
+                            Some("main") => {
+                                self.main = Some(entry);
+                                return true;
+                            }
+                            Some("other") => {
+                                self.other = Some(entry);
+                                return true;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            false
+        }
+    }
+    impl<'a> IntoIterator for &'a ZZZfiles {
+        type Item = Option<&'a ZZZHeader>;
+        type IntoIter = std::vec::IntoIter<Self::Item>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            vec![self.main.as_ref(), self.other.as_ref()].into_iter()
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
     pub struct FI {
         pub uncompressed_size: u32,
         pub offset: u32,
         pub compression_type: CompressionTypeT,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Default)]
+    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
     pub struct FIfile {
         pub file_path: String,
         pub entries: Vec<FI>,
@@ -209,9 +247,10 @@ pub mod oviiirs_archive {
         pub archive_type: ZZZArchiveType,
         pub count: u32,
         pub entries: Vec<ZZZEntry>,
+        pub fiflfs_files: Option<Vec<FIFLFSZZZ>>,
     }
 
-    #[derive(Debug, Deserialize, Serialize, Default)]
+    #[derive(Debug, Deserialize, Serialize, Default, Clone)]
     pub struct FL {
         pub file_path: String,
         pub entries: Vec<String>,
@@ -254,6 +293,9 @@ pub mod oviiirs_archive {
         pub fi: ZZZEntry,
         pub fl: ZZZEntry,
         pub fs: ZZZEntry,
+        pub fi_file: Option<FIfile>,
+        pub fl_file: Option<FL>,
+        pub field_archives: Option<Vec<FIFLFSZZZ>>,
     }
 
     impl FIFLFSZZZTemp {
@@ -269,6 +311,9 @@ pub mod oviiirs_archive {
                 fi: self.fi.unwrap(),
                 fl: self.fl.unwrap(),
                 fs: self.fs.unwrap(),
+                fi_file: None,
+                fl_file: None,
+                field_archives: None,
             }
         }
     }
@@ -546,6 +591,7 @@ pub mod oviiirs_archive {
             archive_type,
             count,
             entries,
+            fiflfs_files: None,
         })
     }
 
@@ -618,7 +664,7 @@ pub mod oviiirs_archive {
         // Create a FIfile struct to hold the entries
         let mut fifile = FIfile::default();
         fifile.file_path = entry.string_data.clone();
-        
+
         // Technically you don't need to always read the whole fi into memory except when it or it's parents are compressed. Just a simplication to load it into memory. You could always calculate the position from the fl file. Index*12 = the offset of an entry.
         let buffer = match entry.compression_type {
             CompressionTypeT::None => {

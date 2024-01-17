@@ -45,57 +45,118 @@ fn main() -> io::Result<()> {
 
     save_config(&config, &config_path)?;
 
-    let zzz_files = process_files_in_directory(&config.locations.chosen_directory)?;
+    let mut zzz_files: ZZZfiles = Default::default();
+    let zzz_paths = process_files_in_directory(&config.locations.chosen_directory)?;
+    let mut archive_strings = HashSet::new();
+    zzz_paths.iter().try_for_each(|path| -> io::Result<()> {
+        let mut data = read_data_from_file(&path)?;
 
-    for zzz_file in zzz_files {
-        let data = read_data_from_file(&zzz_file)?;
-        let archives = find_archives(data.entries.clone(), &zzz_file);
+        // Return Ok(()) to propagate the result
 
-        let mut archive_strings = HashSet::new();
-        for archive in &archives {
-            archive_strings.insert(&archive.fi.string_data);
-            archive_strings.insert(&archive.fs.string_data);
-            archive_strings.insert(&archive.fl.string_data);
-        }
-
-        let filtered_entries = data
-            .entries
-            .iter()
-            .filter(|&entry| !archive_strings.contains(&entry.string_data));
-
-        extract_zzz_files(filtered_entries, &zzz_file)?;
-
-        //begin create toml of data
-        let native_file_path = generate_relative_path(&generate_zzz_filename(&zzz_file));
-        let extract_path = generate_native_path("toml_dumps");
-        let zzz_toml_path = extract_path.join(native_file_path).to_string();
-        create_directories(&PathBuf::from(&zzz_toml_path))?;
-        save_config(&data, zzz_toml_path.as_str())?;
-        dump_archives_toml(archives.iter())?;
-
-        extract_archives(
-            archives
-                .iter()
-                .filter(|&item| item.archive_type != ArchiveType::Field),
-        )?;
-
-        let result = archives
-            .iter()
-            .find(|&item| item.archive_type == ArchiveType::Field);
-        match result {
-            Some(found_element) => {
-                // Do something with the found element
-                println!("Found: {:?}", found_element);
-                let field_archives = find_archives_field(found_element)?;
-                extract_archives(field_archives.iter())?;
-                dump_archives_toml(field_archives.iter())?;
+        // Check if data.fiflfs_files is None or the vector inside is empty
+        if data.fiflfs_files.is_none() || data.fiflfs_files.as_ref().unwrap().is_empty() {
+            data.fiflfs_files
+                .get_or_insert_with(|| find_archives(data.entries.clone(), &path));
+            match data.fiflfs_files.as_ref() {
+                Some(archives) => {
+                    // Perform your operation using the files inside the Some variant
+                    for archive in archives {
+                        archive_strings.insert(archive.fi.string_data.clone());
+                        archive_strings.insert(archive.fs.string_data.clone());
+                        archive_strings.insert(archive.fl.string_data.clone());
+                    }
+                    // Add your operation here
+                }
+                None => {}
             }
-            None => {
-                // Handle the case when no element with ArchiveType::Field is found
-                //println!("Element with ArchiveType::Field not found");
+
+            match data.fiflfs_files.as_mut() {
+                Some(archives) => {
+                    load_archives_fi_fl(archives.iter_mut())?;
+
+                    let result = archives
+                        .iter_mut()
+                        .find(|item| item.archive_type == ArchiveType::Field);
+                    match result {
+                        Some(field) => {
+                            if field.field_archives.is_none()
+                                || field.field_archives.as_ref().unwrap().is_empty()
+                            {
+                                field.field_archives = Some(
+                                    field
+                                        .field_archives
+                                        .take()
+                                        .map_or_else(|| find_archives_field(field), Ok)?,
+                                );
+                            }
+                            match field.field_archives.as_mut() {
+                                Some(field_archives) => {
+                                    load_archives_fi_fl(field_archives.iter_mut())?;
+                                }
+                                None => {}
+                            }
+                        }
+                        None => {}
+                    }
+                }
+                None => {}
             }
         }
-    }
+        zzz_files.push(data);
+        Ok(())
+    })?;
+
+    //begin create toml of data
+
+    let extract_path = generate_native_path("toml_dumps");
+    let toml_path = extract_path.join("archives.toml").to_string();
+    create_directories(&PathBuf::from(&toml_path))?;
+    save_config(&zzz_files, &toml_path)?;
+
+    zzz_files
+        .into_iter()
+        .try_for_each(|opt_zzz_file| -> io::Result<()> {
+            match opt_zzz_file {
+                Some(zzz_file) => {
+                    let filtered_entries = zzz_file
+                        .entries
+                        .iter()
+                        .filter(|&entry| !archive_strings.contains(&entry.string_data));
+                    extract_zzz_files(filtered_entries, &zzz_file.file_path)?;
+
+                    match zzz_file.fiflfs_files.as_ref() {
+                        Some(archives) => {
+                            //dump_archives_toml(archives.iter())?;
+
+                            extract_archives(
+                                archives
+                                    .iter()
+                                    .filter(|&item| item.archive_type != ArchiveType::Field),
+                            )?;
+
+                            let result = archives
+                                .iter()
+                                .find(|&item| item.archive_type == ArchiveType::Field);
+                            match result.as_ref() {
+                                Some(field) => {
+                                    match field.field_archives.as_ref() {
+                                        Some(field_archives) => {
+                                            extract_archives(field_archives.iter())?;
+                                            //dump_archives_toml(field_archives.iter())?;
+                                        }
+                                        None => {}
+                                    }
+                                }
+                                None => {}
+                            }
+                        }
+                        None => {}
+                    }
+                }
+                None => {}
+            }
+            Ok(())
+        })?;
 
     Ok(())
 }
@@ -125,6 +186,30 @@ where
     Ok(())
 }
 
+fn load_archives_fi_fl<'a, I>(archives: I) -> io::Result<()>
+where
+    I: Iterator<Item = &'a mut FIFLFSZZZ>, // Change to mutable references
+{
+    for archive in archives {
+        // Now you can use `archive` as a mutable reference
+        if archive.fi_file.is_none() || archive.fi_file.as_ref().unwrap().entries.is_empty() {
+            archive.fi_file = Some(archive.fi_file.take().map_or_else(
+                || read_fi_entries_from_file(&archive.fi, &archive.file_path),
+                Ok,
+            )?);
+        }
+
+        if archive.fl_file.is_none() || archive.fi_file.as_ref().unwrap().entries.is_empty() {
+            archive.fl_file = Some(archive.fl_file.take().map_or_else(
+                || read_fl_entries_from_file(&archive.fl, &archive.file_path),
+                Ok,
+            )?);
+        }
+    }
+
+    Ok(())
+}
+
 fn dump_archives_toml<'a, I>(archives: I) -> io::Result<()>
 where
     I: Iterator<Item = &'a FIFLFSZZZ>,
@@ -145,16 +230,31 @@ where
                 generate_relative_path(&generate_new_filename(&archive.fi.string_data));
             let toml_path = extract_path.join(native_file_path).to_string();
             create_directories(&PathBuf::from(&toml_path))?;
-            let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
-            save_config(&fi_file, &toml_path)?;
+            // let fi_file = read_fi_entries_from_file(&archive.fi, &archive.file_path)?;
+            // save_config(&fi_file, &toml_path)?;
+            // Check if data.fiflfs_files is None or the vector inside is empty
+
+            match archive.fi_file.as_ref() {
+                Some(fi_file) => {
+                    save_config(&fi_file, &toml_path)?;
+                }
+                None => {}
+            }
         }
         {
             let native_file_path =
                 generate_relative_path(&generate_new_filename(&&archive.fl.string_data));
             let toml_path = extract_path.join(native_file_path).to_string();
             create_directories(&PathBuf::from(&toml_path))?;
-            let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
-            save_config(&fl_file, &toml_path)?;
+            // let fl_file = read_fl_entries_from_file(&archive.fl, &archive.file_path)?;
+            // save_config(&fl_file, &toml_path)?;
+
+            match archive.fi_file.as_ref() {
+                Some(fi_file) => {
+                    save_config(&fi_file, &toml_path)?;
+                }
+                None => {}
+            }
         }
     }
     Ok(())
