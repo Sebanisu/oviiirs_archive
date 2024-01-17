@@ -1,4 +1,9 @@
-use std::{collections::HashSet, fs, io, path::PathBuf, process::exit};
+use std::{
+    collections::HashSet,
+    fs, io,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 use oviiirs_archive::oviiirs_archive::*;
 mod lzss;
@@ -11,8 +16,77 @@ fn main() -> io::Result<()> {
 
     config.locations.ensure_chosen_directory_in_directories();
 
-    let directories = filter_valid_directories(&config.locations.directories);
+    let has_chosen_directory = {
+        let path = Path::new(&config.locations.chosen_directory);
+        path.exists() && path.is_dir()
+    };
+    if !has_chosen_directory {
+        change_ff8_directory(&mut config);
 
+        save_config(&config, &config_path)?;
+    }
+    loop {
+        println!(
+            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: {}) \n\t{}: Change Extract Directory (current: {}) \n\t{}: Extract All Files \n\t{}: Exit \n",
+            MainMenuSelection::ChangeFF8Directory as i32,
+            config.locations.chosen_directory,
+            MainMenuSelection::ChangeExtractDirectory as i32,
+            config.locations.extract_directory,
+            MainMenuSelection::ExtractAllFiles as i32,
+            MainMenuSelection::Exit as i32
+        );
+
+        let mut user_input = String::new();
+        io::stdin()
+            .read_line(&mut user_input)
+            .expect("Failed to read user input");
+
+        user_input = user_input.trim().to_string();
+
+        match user_input.parse::<MainMenuSelection>() {
+            Ok(MainMenuSelection::ChangeFF8Directory) => {
+                change_ff8_directory(&mut config);
+
+                save_config(&config, &config_path)?;
+            }
+            Ok(MainMenuSelection::ChangeExtractDirectory) => {
+                change_ff8_directory(&mut config);
+
+                save_config(&config, &config_path)?;
+            }
+            Ok(MainMenuSelection::ExtractAllFiles) => {
+                let zzz_files = load_archives(&config)?;
+
+                //begin create toml of data
+                let extract_path = generate_native_path("toml_dumps");
+                let toml_path = extract_path.join("archives.toml").to_string();
+                create_directories(&PathBuf::from(&toml_path))?;
+                save_config(&zzz_files, &toml_path)?;
+
+                extract_all_files(&zzz_files)?;
+            }
+            Ok(MainMenuSelection::Exit) => {
+                // Handle the case when the user chooses to exit
+                println!("Exiting...");
+                // Perform any necessary cleanup and exit the program
+                // You can return a default value here or use a placeholder value
+                //exit(0);
+                return Ok(());
+            }
+            Err(err) => {
+                match err {
+                    ParseMainMenuError::InvalidInput(msg) => {
+                        println!("Error Invalid Input: \"{}\"\n", msg);
+                        // Handle invalid input
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn change_ff8_directory(config: &mut Config) {
+    let directories = filter_valid_directories(&config.locations.directories);
     let user_choice = display_directory_info(&directories, &config.locations.chosen_directory);
 
     config.locations.chosen_directory = match user_choice {
@@ -42,21 +116,10 @@ fn main() -> io::Result<()> {
             exit(0);
         }
     };
+}
 
-    save_config(&config, &config_path)?;
-
-    
-
-    let zzz_files = load_archives(&config)?;
-
-    //begin create toml of data
-    let extract_path = generate_native_path("toml_dumps");
-    let toml_path = extract_path.join("archives.toml").to_string();
-    create_directories(&PathBuf::from(&toml_path))?;
-    save_config(&zzz_files, &toml_path)?;
-    
+fn extract_all_files(zzz_files: &ZZZfiles) -> io::Result<()> {
     let archive_strings = get_archive_strings(&zzz_files.main);
-
     zzz_files
         .into_iter()
         .try_for_each(|opt_zzz_file| -> io::Result<()> {
@@ -86,14 +149,10 @@ fn main() -> io::Result<()> {
             }
             Ok(())
         })?;
-
     Ok(())
 }
 
-
-fn get_archive_strings(archive: &Option<ZZZHeader>) -> HashSet<String>
-{
-
+fn get_archive_strings(archive: &Option<ZZZHeader>) -> HashSet<String> {
     let mut archive_strings = HashSet::new();
     if let Some(main) = archive.as_ref() {
         if let Some(archives) = main.fiflfs_files.as_ref() {

@@ -268,8 +268,14 @@ pub mod oviiirs_archive {
     pub struct Locations {
         #[serde(default)]
         pub chosen_directory: String,
+        #[serde(default = "default_extract_directory")]
+        pub extract_directory: String,
         #[serde(default)]
         pub directories: Vec<String>,
+    }
+
+    fn default_extract_directory() -> String {
+        String::from("test")
     }
 
     #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -354,6 +360,41 @@ pub mod oviiirs_archive {
         NewDirectory(String),
         ExistingDirectory(String),
         Exit,
+    }
+
+    #[derive(Debug)]
+    pub enum MainMenuSelection {
+        ChangeFF8Directory,
+        ChangeExtractDirectory,
+        ExtractAllFiles,
+        Exit,
+    }
+
+    #[derive(Debug)]
+    pub enum ParseMainMenuError {
+        InvalidInput(String),
+    }
+
+    impl std::str::FromStr for MainMenuSelection {
+        type Err = ParseMainMenuError;
+
+        fn from_str(s: &str) -> Result<Self, ParseMainMenuError> {
+            match s {
+                s if s == format!("{}", MainMenuSelection::ChangeFF8Directory as u32) => {
+                    Ok(MainMenuSelection::ChangeFF8Directory)
+                }
+                s if s == format!("{}", MainMenuSelection::ChangeExtractDirectory as u32) => {
+                    Ok(MainMenuSelection::ChangeExtractDirectory)
+                }
+                s if s == format!("{}", MainMenuSelection::ExtractAllFiles as u32) => {
+                    Ok(MainMenuSelection::ExtractAllFiles)
+                }
+                s if s == format!("{}", MainMenuSelection::Exit as u32) => {
+                    Ok(MainMenuSelection::Exit)
+                }
+                _ => Err(ParseMainMenuError::InvalidInput(s.to_string())),
+            }
+        }
     }
 
     pub fn write_bytes_to_file(file_path: &PathBuf, data: &[u8]) -> io::Result<()> {
