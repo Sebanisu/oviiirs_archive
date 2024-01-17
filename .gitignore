@@ -17,5 +17,5 @@ Cargo.lock
 *_fi*.toml
 *_zzz*.toml
 
-test/*
+test*/*
 toml_dumps/*

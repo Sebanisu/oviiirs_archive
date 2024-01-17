@@ -1,4 +1,4 @@
 [locations]
 chosen_directory = 'D:\SteamLibrary\steamapps\common\FINAL FANTASY VIII Remastered'
-extract_directory = "test"
+extract_directory = "test2"
 directories = ["/mnt/d/SteamLibrary/steamapps/common/FINAL FANTASY VIII Remastered", 'D:\SteamLibrary\steamapps\common\FINAL FANTASY VIII Remastered']

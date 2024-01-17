@@ -27,7 +27,7 @@ fn main() -> io::Result<()> {
     }
     loop {
         println!(
-            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: {}) \n\t{}: Change Extract Directory (current: {}) \n\t{}: Extract All Files \n\t{}: Exit \n",
+            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: \"{}\") \n\t{}: Change Extract Directory (current: \"{}\") \n\t{}: Extract All Files \n\t{}: Exit \n",
             MainMenuSelection::ChangeFF8Directory as i32,
             config.locations.chosen_directory,
             MainMenuSelection::ChangeExtractDirectory as i32,
@@ -50,9 +50,22 @@ fn main() -> io::Result<()> {
                 save_config(&config, &config_path)?;
             }
             Ok(MainMenuSelection::ChangeExtractDirectory) => {
-                change_ff8_directory(&mut config);
+                println!("\nEnter a new extract path: ");
+                let mut user_input_extract_path = String::new();
+                io::stdin()
+                    .read_line(&mut user_input_extract_path)
+                    .expect("Failed to read user input");
 
-                save_config(&config, &config_path)?;
+                user_input_extract_path = user_input_extract_path.trim().to_string();
+                match is_valid_path(&user_input_extract_path) {
+                    true => {
+                        config.locations.extract_directory = user_input_extract_path;
+                        save_config(&config, &config_path)?;
+                    }
+                    false => {
+                        eprintln!("Error not a valid path: \"{}\"\n", user_input_extract_path);
+                    }
+                }
             }
             Ok(MainMenuSelection::ExtractAllFiles) => {
                 let zzz_files = load_archives(&config)?;
@@ -63,7 +76,7 @@ fn main() -> io::Result<()> {
                 create_directories(&PathBuf::from(&toml_path))?;
                 save_config(&zzz_files, &toml_path)?;
 
-                extract_all_files(&zzz_files)?;
+                extract_all_files(&zzz_files, &config.locations.extract_directory)?;
             }
             Ok(MainMenuSelection::Exit) => {
                 // Handle the case when the user chooses to exit
@@ -82,6 +95,19 @@ fn main() -> io::Result<()> {
                 }
             }
         }
+    }
+}
+
+fn is_valid_path(path_str: &str) -> bool {
+    let path_buf = PathBuf::from(path_str);
+
+    // Check if the path has invalid characters
+    if let Some(_) = path_buf.to_str() {
+        // Path is valid
+        true
+    } else {
+        // Path contains invalid characters
+        false
     }
 }
 
@@ -118,7 +144,7 @@ fn change_ff8_directory(config: &mut Config) {
     };
 }
 
-fn extract_all_files(zzz_files: &ZZZfiles) -> io::Result<()> {
+fn extract_all_files(zzz_files: &ZZZfiles, extract_path_str: &String) -> io::Result<()> {
     let archive_strings = get_archive_strings(&zzz_files.main);
     zzz_files
         .into_iter()
@@ -128,13 +154,14 @@ fn extract_all_files(zzz_files: &ZZZfiles) -> io::Result<()> {
                     .entries
                     .iter()
                     .filter(|&entry| !archive_strings.contains(&entry.string_data));
-                extract_zzz_files(filtered_entries, &zzz_file.file_path)?;
+                extract_zzz_files(filtered_entries, &zzz_file.file_path, extract_path_str)?;
 
                 if let Some(archives) = zzz_file.fiflfs_files.as_ref() {
                     extract_archives(
                         archives
                             .iter()
                             .filter(|&item| item.archive_type != ArchiveType::Field),
+                        extract_path_str,
                     )?;
 
                     if let Some(field) = archives
@@ -142,7 +169,7 @@ fn extract_all_files(zzz_files: &ZZZfiles) -> io::Result<()> {
                         .find(|&item| item.archive_type == ArchiveType::Field)
                     {
                         if let Some(field_archives) = field.field_archives.as_ref() {
-                            extract_archives(field_archives.iter())?;
+                            extract_archives(field_archives.iter(), extract_path_str)?;
                         }
                     }
                 }
@@ -208,13 +235,17 @@ fn load_archives(config: &Config) -> io::Result<ZZZfiles> {
     Ok(zzz_files)
 }
 
-fn extract_zzz_files<'a, I>(entries: I, file_path: &String) -> io::Result<()>
+fn extract_zzz_files<'a, I>(
+    entries: I,
+    file_path: &String,
+    extract_path_str: &String,
+) -> io::Result<()>
 where
     I: Iterator<Item = &'a ZZZEntry>,
 {
     for entry in entries {
         let native_file_path = generate_relative_path(&entry.string_data);
-        let extract_path = generate_native_path("test");
+        let extract_path = generate_native_path(extract_path_str);
         let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
         create_directories(&new_extract_path)?;
 
@@ -257,7 +288,7 @@ where
     Ok(())
 }
 
-fn extract_archives<'a, I>(archives: I) -> io::Result<()>
+fn extract_archives<'a, I>(archives: I, extract_path_str: &String) -> io::Result<()>
 where
     I: Iterator<Item = &'a FIFLFSZZZ>,
 {
@@ -304,7 +335,7 @@ where
             let (fi, fl) = fi_fl;
 
             let native_file_path = generate_relative_path(&fl);
-            let extract_path = generate_native_path("test");
+            let extract_path = generate_native_path(extract_path_str);
             let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
             create_directories(&new_extract_path)?;
 
