@@ -290,12 +290,10 @@ fn generate_native_path(outpath: &str) -> Utf8NativePathBuf {
 }
 
 fn create_directories(new_extract_path: &PathBuf) -> io::Result<()> {
-    match new_extract_path.parent() {
-        Some(parent) => fs::create_dir_all(parent),
-        None => {
-            // Handle the case where `new_extract_path.parent()` is `None`.
-            // You can choose to do nothing or add some error handling logic.
-            Ok(())
-        }
+    if let Some(parent) = new_extract_path.parent() {
+        fs::create_dir_all(parent)?;
     }
+
+    Ok(())
 }
+
