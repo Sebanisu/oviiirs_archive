@@ -18,3 +18,4 @@ Cargo.lock
 *_zzz*.toml
 
 test/*
+toml_dumps/*

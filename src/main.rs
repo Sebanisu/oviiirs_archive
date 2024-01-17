@@ -107,56 +107,39 @@ fn main() -> io::Result<()> {
     })?;
 
     //begin create toml of data
-
     let extract_path = generate_native_path("toml_dumps");
     let toml_path = extract_path.join("archives.toml").to_string();
     create_directories(&PathBuf::from(&toml_path))?;
     save_config(&zzz_files, &toml_path)?;
 
+
     zzz_files
-        .into_iter()
-        .try_for_each(|opt_zzz_file| -> io::Result<()> {
-            match opt_zzz_file {
-                Some(zzz_file) => {
-                    let filtered_entries = zzz_file
-                        .entries
+    .into_iter()
+    .try_for_each(|opt_zzz_file| -> io::Result<()> {
+        if let Some(zzz_file) = opt_zzz_file {
+            let filtered_entries = zzz_file
+                .entries
+                .iter()
+                .filter(|&entry| !archive_strings.contains(&entry.string_data));
+            extract_zzz_files(filtered_entries, &zzz_file.file_path)?;
+
+            if let Some(archives) = zzz_file.fiflfs_files.as_ref() {
+                extract_archives(
+                    archives
                         .iter()
-                        .filter(|&entry| !archive_strings.contains(&entry.string_data));
-                    extract_zzz_files(filtered_entries, &zzz_file.file_path)?;
+                        .filter(|&item| item.archive_type != ArchiveType::Field),
+                )?;
 
-                    match zzz_file.fiflfs_files.as_ref() {
-                        Some(archives) => {
-                            //dump_archives_toml(archives.iter())?;
-
-                            extract_archives(
-                                archives
-                                    .iter()
-                                    .filter(|&item| item.archive_type != ArchiveType::Field),
-                            )?;
-
-                            let result = archives
-                                .iter()
-                                .find(|&item| item.archive_type == ArchiveType::Field);
-                            match result.as_ref() {
-                                Some(field) => {
-                                    match field.field_archives.as_ref() {
-                                        Some(field_archives) => {
-                                            extract_archives(field_archives.iter())?;
-                                            //dump_archives_toml(field_archives.iter())?;
-                                        }
-                                        None => {}
-                                    }
-                                }
-                                None => {}
-                            }
-                        }
-                        None => {}
+                if let Some(field) = archives.iter().find(|&item| item.archive_type == ArchiveType::Field) {
+                    if let Some(field_archives) = field.field_archives.as_ref() {
+                        extract_archives(field_archives.iter())?;
                     }
                 }
-                None => {}
             }
-            Ok(())
-        })?;
+        }
+        Ok(())
+    })?;
+
 
     Ok(())
 }
