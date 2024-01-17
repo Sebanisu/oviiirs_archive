@@ -48,63 +48,46 @@ fn main() -> io::Result<()> {
     let mut zzz_files: ZZZfiles = Default::default();
     let zzz_paths = process_files_in_directory(&config.locations.chosen_directory)?;
     let mut archive_strings = HashSet::new();
+
     zzz_paths.iter().try_for_each(|path| -> io::Result<()> {
         let mut data = read_data_from_file(&path)?;
-
-        // Return Ok(()) to propagate the result
-
-        // Check if data.fiflfs_files is None or the vector inside is empty
+    
         if data.fiflfs_files.is_none() || data.fiflfs_files.as_ref().unwrap().is_empty() {
             data.fiflfs_files
                 .get_or_insert_with(|| find_archives(data.entries.clone(), &path));
-            match data.fiflfs_files.as_ref() {
-                Some(archives) => {
-                    // Perform your operation using the files inside the Some variant
-                    for archive in archives {
-                        archive_strings.insert(archive.fi.string_data.clone());
-                        archive_strings.insert(archive.fs.string_data.clone());
-                        archive_strings.insert(archive.fl.string_data.clone());
-                    }
-                    // Add your operation here
+    
+            if let Some(archives) = data.fiflfs_files.as_ref() {
+                for archive in archives {
+                    archive_strings.insert(archive.fi.string_data.clone());
+                    archive_strings.insert(archive.fs.string_data.clone());
+                    archive_strings.insert(archive.fl.string_data.clone());
                 }
-                None => {}
             }
-
-            match data.fiflfs_files.as_mut() {
-                Some(archives) => {
-                    load_archives_fi_fl(archives.iter_mut())?;
-
-                    let result = archives
-                        .iter_mut()
-                        .find(|item| item.archive_type == ArchiveType::Field);
-                    match result {
-                        Some(field) => {
-                            if field.field_archives.is_none()
-                                || field.field_archives.as_ref().unwrap().is_empty()
-                            {
-                                field.field_archives = Some(
-                                    field
-                                        .field_archives
-                                        .take()
-                                        .map_or_else(|| find_archives_field(field), Ok)?,
-                                );
-                            }
-                            match field.field_archives.as_mut() {
-                                Some(field_archives) => {
-                                    load_archives_fi_fl(field_archives.iter_mut())?;
-                                }
-                                None => {}
-                            }
-                        }
-                        None => {}
+    
+            if let Some(archives) = data.fiflfs_files.as_mut() {
+                load_archives_fi_fl(archives.iter_mut())?;
+    
+                if let Some(field) = archives.iter_mut().find(|item| item.archive_type == ArchiveType::Field) {
+                    if field.field_archives.is_none() || field.field_archives.as_ref().unwrap().is_empty() {
+                        field.field_archives = Some(
+                            field
+                                .field_archives
+                                .take()
+                                .map_or_else(|| find_archives_field(field), Ok)?,
+                        );
+                    }
+    
+                    if let Some(field_archives) = field.field_archives.as_mut() {
+                        load_archives_fi_fl(field_archives.iter_mut())?;
                     }
                 }
-                None => {}
             }
         }
+    
         zzz_files.push(data);
         Ok(())
     })?;
+    
 
     //begin create toml of data
     let extract_path = generate_native_path("toml_dumps");
