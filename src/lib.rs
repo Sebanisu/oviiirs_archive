@@ -147,6 +147,7 @@ pub mod oviiirs_archive {
         Main,
         Menu,
         World,
+        Other(String), // Custom or additional archive types
     }
 
     impl std::fmt::Display for ArchiveType {
@@ -159,20 +160,26 @@ pub mod oviiirs_archive {
                 ArchiveType::Main => write!(f, "Main"),
                 ArchiveType::Menu => write!(f, "Menu"),
                 ArchiveType::World => write!(f, "World"),
+                ArchiveType::Other(s) => write!(f, "{}", s),
             }
         }
     }
 
     impl FromStr for ArchiveType {
         fn from_str(s: &str) -> Self {
-            match s {
+            let trimmed = s.trim();
+
+            if trimmed.is_empty() {
+                return ArchiveType::None;
+            }
+            match trimmed {
                 "battle" => ArchiveType::Battle,
                 "field" => ArchiveType::Field,
                 "magic" => ArchiveType::Magic,
                 "main" => ArchiveType::Main,
                 "menu" => ArchiveType::Menu,
                 "world" => ArchiveType::World,
-                _ => ArchiveType::None,
+                other => ArchiveType::Other(other.to_lowercase()),
             }
         }
     }
@@ -181,6 +188,11 @@ pub mod oviiirs_archive {
         fn default() -> Self {
             ArchiveType::None
         }
+    }
+
+    fn capitalize(s: &str) -> String {
+        let (first, rest) = s.split_at(1);
+        format!("{}{}", first.to_uppercase(), rest.to_lowercase())
     }
 
     #[derive(Debug, Serialize, Deserialize, Clone)]
