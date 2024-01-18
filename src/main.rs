@@ -7,6 +7,7 @@ use std::{
 
 use oviiirs_archive::oviiirs_archive::*;
 mod lzss;
+use regex::Regex;
 use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
 
 fn main() -> io::Result<()> {
@@ -27,12 +28,14 @@ fn main() -> io::Result<()> {
     }
     loop {
         println!(
-            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: \"{}\") \n\t{}: Change Extract Directory (current: \"{}\") \n\t{}: Extract All Files \n\t{}: Exit \n",
+            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: \"{}\") \n\t{}: Change Extract Directory (current: \"{}\") \n\t{}: Extract All Files \n\t{}: Change RegEx Filter (r\"{}\") \n\t{}: Exit \n",
             MainMenuSelection::ChangeFF8Directory as i32,
             config.locations.chosen_directory,
             MainMenuSelection::ChangeExtractDirectory as i32,
             config.locations.extract_directory,
             MainMenuSelection::ExtractAllFiles as i32,
+            MainMenuSelection::ChangeRegExFilter as i32,
+            config.extract_regex_filter,
             MainMenuSelection::Exit as i32
         );
 
@@ -76,7 +79,27 @@ fn main() -> io::Result<()> {
                 create_directories(&PathBuf::from(&toml_path))?;
                 save_config(&zzz_files, &toml_path)?;
 
-                extract_all_files(&zzz_files, &config.locations.extract_directory)?;
+                extract_all_files(&zzz_files, &config)?;
+            }
+            Ok(MainMenuSelection::ChangeRegExFilter) => {
+                println!("\nEnter a new extract RegEx filter: ");
+                let mut user_input_regex_filter = String::new();
+                io::stdin()
+                    .read_line(&mut user_input_regex_filter)
+                    .expect("Failed to read user input");
+
+                user_input_regex_filter = user_input_regex_filter.trim().to_string();
+
+                if user_input_regex_filter.is_empty() {
+                    config.extract_regex_filter.clear();
+                    save_config(&config, &config_path)?;
+                } else if let Ok(_) = Regex::new(&user_input_regex_filter) {
+                    // The regex is valid
+                    config.extract_regex_filter = user_input_regex_filter;
+                    save_config(&config, &config_path)?;
+                } else {
+                    eprintln!("Invalid RegEx r\"{}\"", user_input_regex_filter);
+                }
             }
             Ok(MainMenuSelection::Exit) => {
                 // Handle the case when the user chooses to exit
@@ -144,24 +167,29 @@ fn change_ff8_directory(config: &mut Config) {
     };
 }
 
-fn extract_all_files(zzz_files: &ZZZfiles, extract_path_str: &String) -> io::Result<()> {
+fn extract_all_files(zzz_files: &ZZZfiles, config: &Config) -> io::Result<()> {
+    let re = match &config.extract_regex_filter {
+        s if s.is_empty() => Regex::new(r".*"),
+        _ => Regex::new(&config.extract_regex_filter),
+    };
     let archive_strings = get_archive_strings(&zzz_files.main);
     zzz_files
         .into_iter()
         .try_for_each(|opt_zzz_file| -> io::Result<()> {
             if let Some(zzz_file) = opt_zzz_file {
-                let filtered_entries = zzz_file
-                    .entries
-                    .iter()
-                    .filter(|&entry| !archive_strings.contains(&entry.string_data));
-                extract_zzz_files(filtered_entries, &zzz_file.file_path, extract_path_str)?;
+                let filtered_entries = zzz_file.entries.iter().filter(|&entry| {
+                    !archive_strings.contains(&entry.string_data)
+                        && (re.is_err()
+                            || re.as_ref().is_ok_and(|r| r.is_match(&entry.string_data)))
+                });
+                extract_zzz_files(filtered_entries, &zzz_file.file_path, &config)?;
 
                 if let Some(archives) = zzz_file.fiflfs_files.as_ref() {
                     extract_archives(
                         archives
                             .iter()
                             .filter(|&item| item.archive_type != ArchiveType::Field),
-                        extract_path_str,
+                        &config,
                     )?;
 
                     if let Some(field) = archives
@@ -169,7 +197,7 @@ fn extract_all_files(zzz_files: &ZZZfiles, extract_path_str: &String) -> io::Res
                         .find(|&item| item.archive_type == ArchiveType::Field)
                     {
                         if let Some(field_archives) = field.field_archives.as_ref() {
-                            extract_archives(field_archives.iter(), extract_path_str)?;
+                            extract_archives(field_archives.iter(), &config)?;
                         }
                     }
                 }
@@ -235,17 +263,13 @@ fn load_archives(config: &Config) -> io::Result<ZZZfiles> {
     Ok(zzz_files)
 }
 
-fn extract_zzz_files<'a, I>(
-    entries: I,
-    file_path: &String,
-    extract_path_str: &String,
-) -> io::Result<()>
+fn extract_zzz_files<'a, I>(entries: I, file_path: &String, config: &Config) -> io::Result<()>
 where
     I: Iterator<Item = &'a ZZZEntry>,
 {
     for entry in entries {
         let native_file_path = generate_relative_path(&entry.string_data);
-        let extract_path = generate_native_path(extract_path_str);
+        let extract_path = generate_native_path(&config.locations.extract_directory);
         let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
         create_directories(&new_extract_path)?;
 
@@ -288,10 +312,14 @@ where
     Ok(())
 }
 
-fn extract_archives<'a, I>(archives: I, extract_path_str: &String) -> io::Result<()>
+fn extract_archives<'a, I>(archives: I, config: &Config) -> io::Result<()>
 where
     I: Iterator<Item = &'a FIFLFSZZZ>,
 {
+    let re = match &config.extract_regex_filter {
+        s if s.is_empty() => Regex::new(r".*"),
+        _ => Regex::new(&config.extract_regex_filter),
+    };
     for archive in archives {
         if archive.fi_file.is_none() || archive.fi_file.is_none() {
             continue;
@@ -330,12 +358,15 @@ where
             .entries
             .iter()
             .zip(fl_file.entries.iter())
-            .filter(|(fi, _)| fi.uncompressed_size != 0)
+            .filter(|(fi, fl)| {
+                fi.uncompressed_size != 0
+                    && (re.is_err() || re.as_ref().is_ok_and(|r| r.is_match(&fl)))
+            })
         {
             let (fi, fl) = fi_fl;
 
             let native_file_path = generate_relative_path(&fl);
-            let extract_path = generate_native_path(extract_path_str);
+            let extract_path = generate_native_path(&config.locations.extract_directory);
             let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
             create_directories(&new_extract_path)?;
 

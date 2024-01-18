@@ -262,6 +262,7 @@ pub mod oviiirs_archive {
     pub struct Config {
         #[serde(default)]
         pub locations: Locations,
+        pub extract_regex_filter: String,
     }
 
     #[derive(Serialize, Deserialize, Default)]
@@ -367,6 +368,7 @@ pub mod oviiirs_archive {
         ChangeFF8Directory,
         ChangeExtractDirectory,
         ExtractAllFiles,
+        ChangeRegExFilter,
         Exit,
     }
 
@@ -388,6 +390,9 @@ pub mod oviiirs_archive {
                 }
                 s if s == format!("{}", MainMenuSelection::ExtractAllFiles as u32) => {
                     Ok(MainMenuSelection::ExtractAllFiles)
+                }
+                s if s == format!("{}", MainMenuSelection::ChangeRegExFilter as u32) => {
+                    Ok(MainMenuSelection::ChangeRegExFilter)
                 }
                 s if s == format!("{}", MainMenuSelection::Exit as u32) => {
                     Ok(MainMenuSelection::Exit)
