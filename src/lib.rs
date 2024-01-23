@@ -386,9 +386,39 @@ pub mod oviiirs_archive {
         Exit,
     }
 
+    // impl ToString for MainMenuSelection {
+    //     fn to_string(&self) -> String {
+    //         match self {
+    //             MainMenuSelection::ChangeFF8Directory => "Change FF8 Directory".to_string(),
+    //             MainMenuSelection::ChangeExtractDirectory => "Change Extract Directory".to_string(),
+    //             MainMenuSelection::ExtractAllFiles => "Extract All Files".to_string(),
+    //             MainMenuSelection::ChangeRegExFilter => "Change RegEx Filter".to_string(),
+    //             MainMenuSelection::RebuildCache => "Rebuild Cache".to_string(),
+    //             MainMenuSelection::Exit => "Exit".to_string(),
+    //         }
+    //     }
+    // }
+
     #[derive(Debug)]
     pub enum ParseMainMenuError {
         InvalidInput(String),
+    }
+
+    impl fmt::Display for MainMenuSelection {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "{}",
+                match self {
+                    MainMenuSelection::ChangeFF8Directory => "Change FF8 Directory",
+                    MainMenuSelection::ChangeExtractDirectory => "Change Extract Directory",
+                    MainMenuSelection::ExtractAllFiles => "Extract All Files",
+                    MainMenuSelection::ChangeRegExFilter => "Change RegEx Filter",
+                    MainMenuSelection::RebuildCache => "Rebuild Cache",
+                    MainMenuSelection::Exit => "Exit",
+                }
+            )
+        }
     }
 
     impl std::str::FromStr for MainMenuSelection {
