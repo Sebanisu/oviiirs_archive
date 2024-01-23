@@ -13,7 +13,7 @@ use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8Windo
 fn main() -> io::Result<()> {
     let config_path: String = "config.toml".to_string();
 
-    let mut config = load_config_from_file(&config_path)?;
+    let mut config: Config = load_toml_from_file(&config_path)?;
 
     config.locations.ensure_chosen_directory_in_directories();
 
@@ -24,11 +24,11 @@ fn main() -> io::Result<()> {
     if !has_chosen_directory {
         change_ff8_directory(&mut config);
 
-        save_config(&config, &config_path)?;
+        save_toml(&config, &config_path)?;
     }
     loop {
         println!(
-            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: \"{}\") \n\t{}: Change Extract Directory (current: \"{}\") \n\t{}: Extract All Files \n\t{}: Change RegEx Filter (r\"{}\") \n\t{}: Exit \n",
+            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: \"{}\") \n\t{}: Change Extract Directory (current: \"{}\") \n\t{}: Extract All Files \n\t{}: Change RegEx Filter (r\"{}\") \n\t{}: Rebuild Cache \n\t{}: Exit \n",
             MainMenuSelection::ChangeFF8Directory as i32,
             config.locations.chosen_directory,
             MainMenuSelection::ChangeExtractDirectory as i32,
@@ -36,6 +36,7 @@ fn main() -> io::Result<()> {
             MainMenuSelection::ExtractAllFiles as i32,
             MainMenuSelection::ChangeRegExFilter as i32,
             config.extract_regex_filter,
+            MainMenuSelection::RebuildCache as i32,
             MainMenuSelection::Exit as i32
         );
 
@@ -46,11 +47,16 @@ fn main() -> io::Result<()> {
 
         user_input = user_input.trim().to_string();
 
+        let cache_path = generate_native_path("cache");
+        let toml_path = cache_path.join("archives.toml").to_string();
+        let bincode_path = cache_path.join("archives.bin").to_string();
+
+        create_directories(&PathBuf::from(&toml_path))?;
         match user_input.parse::<MainMenuSelection>() {
             Ok(MainMenuSelection::ChangeFF8Directory) => {
                 change_ff8_directory(&mut config);
 
-                save_config(&config, &config_path)?;
+                save_toml(&config, &config_path)?;
             }
             Ok(MainMenuSelection::ChangeExtractDirectory) => {
                 println!("\nEnter a new extract path: ");
@@ -63,21 +69,20 @@ fn main() -> io::Result<()> {
                 match is_valid_path(&user_input_extract_path) {
                     true => {
                         config.locations.extract_directory = user_input_extract_path;
-                        save_config(&config, &config_path)?;
+                        save_toml(&config, &config_path)?;
                     }
                     false => {
                         eprintln!("Error not a valid path: \"{}\"\n", user_input_extract_path);
                     }
                 }
             }
-            Ok(MainMenuSelection::ExtractAllFiles) => {
+            Ok(MainMenuSelection::RebuildCache) => {
                 let zzz_files = load_archives(&config)?;
-
-                //begin create toml of data
-                let extract_path = generate_native_path("toml_dumps");
-                let toml_path = extract_path.join("archives.toml").to_string();
-                create_directories(&PathBuf::from(&toml_path))?;
-                save_config(&zzz_files, &toml_path)?;
+                save_toml(&zzz_files, &toml_path)?;
+                save_bincode(&zzz_files, &bincode_path)?;
+            }
+            Ok(MainMenuSelection::ExtractAllFiles) => {
+                let zzz_files = load_or_rebuild_cache(&config, &toml_path, &bincode_path)?;
 
                 extract_all_files(&zzz_files, &config)?;
             }
@@ -92,11 +97,11 @@ fn main() -> io::Result<()> {
 
                 if user_input_regex_filter.is_empty() {
                     config.extract_regex_filter.clear();
-                    save_config(&config, &config_path)?;
+                    save_toml(&config, &config_path)?;
                 } else if let Ok(_) = Regex::new(&user_input_regex_filter) {
                     // The regex is valid
                     config.extract_regex_filter = user_input_regex_filter;
-                    save_config(&config, &config_path)?;
+                    save_toml(&config, &config_path)?;
                 } else {
                     eprintln!("Invalid RegEx r\"{}\"", user_input_regex_filter);
                 }
@@ -117,6 +122,29 @@ fn main() -> io::Result<()> {
                     }
                 }
             }
+        }
+    }
+}
+
+// Load data from bincode file if it exists, otherwise from TOML file or rebuild cache
+fn load_or_rebuild_cache(
+    config: &Config,
+    toml_path: &String,
+    bincode_path: &String,
+) -> Result<ZZZfiles, io::Error> {
+    match (
+        Path::new(bincode_path).exists(),
+        Path::new(toml_path).exists(),
+    ) {
+        (true, _) => load_bincode_from_file(bincode_path),
+        (false, true) => load_toml_from_file(toml_path),
+        (false, false) => {
+            let zzz_files = load_archives(config)?;
+
+            save_toml(&zzz_files, toml_path)?;
+            save_bincode(&zzz_files, bincode_path)?;
+
+            Ok(zzz_files)
         }
     }
 }

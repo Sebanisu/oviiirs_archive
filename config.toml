@@ -1,6 +1,6 @@
-extract_regex_filter = '\.tim'
+extract_regex_filter = ""
 
 [locations]
 chosen_directory = 'D:\SteamLibrary\steamapps\common\FINAL FANTASY VIII Remastered'
 extract_directory = "test"
-directories = ['/mnt/d/SteamLibrary/steamapps/common/FINAL FANTASY VIII Remastered','D:\SteamLibrary\steamapps\common\FINAL FANTASY VIII Remastered']
+directories = ["/mnt/d/SteamLibrary/steamapps/common/FINAL FANTASY VIII Remastered", 'D:\SteamLibrary\steamapps\common\FINAL FANTASY VIII Remastered']

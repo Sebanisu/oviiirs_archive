@@ -1,17 +1,18 @@
 pub use oviiirs_archive::{
-    display_directory_info, filter_valid_directories, find_archives, find_archives_field,
-    generate_new_filename, generate_new_filename_custom_extension, generate_zzz_filename,
-    load_config_from_file, lz4_decompress, process_files_in_directory, read_bytes_from_file,
-    read_bytes_from_memory, read_compressed_bytes_from_file_at_offset_lz4,
-    read_compressed_bytes_from_file_at_offset_lzss,
+    capitalize, display_directory_info, filter_valid_directories, find_archives,
+    find_archives_field, generate_new_filename, generate_new_filename_custom_extension,
+    generate_zzz_filename, load_bincode_from_file, load_toml_from_file, lz4_decompress,
+    process_files_in_directory, read_bytes_from_file, read_bytes_from_memory,
+    read_compressed_bytes_from_file_at_offset_lz4, read_compressed_bytes_from_file_at_offset_lzss,
     read_compressed_bytes_from_memory_at_offset_lzss, read_data_from_file,
-    read_fi_entries_from_file, read_fl_entries_from_file, save_config, write_bytes_to_file,
-    CompressionTypeT, DirectorySelection,
+    read_fi_entries_from_file, read_fl_entries_from_file, save_bincode, save_toml,
+    write_bytes_to_file, CompressionTypeT, DirectorySelection,
 };
 mod lzss;
 pub mod oviiirs_archive {
     use bincode;
     use core::fmt;
+    use serde::de::DeserializeOwned;
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use std::fs;
@@ -190,7 +191,7 @@ pub mod oviiirs_archive {
         }
     }
 
-    fn capitalize(s: &str) -> String {
+    pub fn capitalize(s: &str) -> String {
         let (first, rest) = s.split_at(1);
         format!("{}{}", first.to_uppercase(), rest.to_lowercase())
     }
@@ -381,6 +382,7 @@ pub mod oviiirs_archive {
         ChangeExtractDirectory,
         ExtractAllFiles,
         ChangeRegExFilter,
+        RebuildCache,
         Exit,
     }
 
@@ -406,6 +408,9 @@ pub mod oviiirs_archive {
                 s if s == format!("{}", MainMenuSelection::ChangeRegExFilter as u32) => {
                     Ok(MainMenuSelection::ChangeRegExFilter)
                 }
+                s if s == format!("{}", MainMenuSelection::RebuildCache as u32) => {
+                    Ok(MainMenuSelection::RebuildCache)
+                }
                 s if s == format!("{}", MainMenuSelection::Exit as u32) => {
                     Ok(MainMenuSelection::Exit)
                 }
@@ -421,26 +426,56 @@ pub mod oviiirs_archive {
         Ok(())
     }
 
-    fn read_file_contents(config_path: &String) -> io::Result<String> {
+    fn read_file_contents_as_string(config_path: &String) -> io::Result<String> {
         fs::read_to_string(config_path).or_else(|_| {
             eprintln!("Could not read file `{}`", config_path);
             Ok(String::new()) // Return an empty string in case of an error
         })
     }
 
-    pub fn load_config_from_file(config_path: &String) -> io::Result<Config> {
+    pub fn load_toml_from_file<T>(config_path: &String) -> io::Result<T>
+    where
+        T: DeserializeOwned + Default,
+    {
         // Read the contents of the configuration file
-        let contents = read_file_contents(&config_path)?;
+        let contents = read_file_contents_as_string(config_path)?;
 
-        // Attempt to parse the TOML content into a Config structure
-        match toml::from_str::<Config>(&contents) {
+        // Attempt to parse the content into the specified type (T)
+        match toml::from_str::<T>(&contents) {
             Ok(data) => Ok(data),
             Err(_) => {
-                // Handle the error case, you can choose to return a default Config or propagate the error.
-                // For example, return a default Config:
+                // Handle the error case, you can choose to return a default instance of T or propagate the error.
+                // For example, return a default instance of T:
                 Ok(Default::default())
             }
         }
+    }
+
+    pub fn load_bincode_from_file<T>(config_path: &str) -> io::Result<T>
+    where
+        T: DeserializeOwned + Default,
+    {
+        // Read the contents of the configuration file as binary data
+        let contents = read_file_contents_as_vec_u8(config_path)?;
+
+        // Attempt to deserialize the binary content into the specified type (T)
+        match bincode::deserialize::<T>(&contents) {
+            Ok(data) => Ok(data),
+            Err(_) => {
+                // Handle the error case, you can choose to return a default instance of T or propagate the error.
+                // For example, return a default instance of T:
+                Ok(Default::default())
+            }
+        }
+    }
+
+    fn read_file_contents_as_vec_u8(file_path: &str) -> io::Result<Vec<u8>> {
+        let path = Path::new(file_path);
+        let mut contents = Vec::new();
+
+        fs::File::open(path)?.read_to_end(&mut contents)?;
+
+        Ok(contents)
     }
 
     pub fn filter_valid_directories(dirs: &Vec<String>) -> Vec<String> {
@@ -554,14 +589,14 @@ pub mod oviiirs_archive {
         }
     }
 
-    pub fn save_config<T>(config: &T, filename: &str) -> Result<(), std::io::Error>
+    pub fn save_toml<T>(config: &T, filename: &str) -> Result<(), std::io::Error>
     where
         T: Serialize,
     {
         let config_str = toml::to_string(config).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
-                format!("Failed to serialize updated config: {}", e),
+                format!("Failed to serialize updated toml: {}", e),
             )
         })?;
 
@@ -576,6 +611,32 @@ pub mod oviiirs_archive {
 
         buf_writer.write_all(config_str.as_bytes())?;
         buf_writer.flush()?;
+        Ok(())
+    }
+
+    pub fn save_bincode<T>(config: &T, filename: &str) -> Result<(), io::Error>
+    where
+        T: Serialize,
+    {
+        // Serialize the configuration using bincode
+        let config_bytes = bincode::serialize(config).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to serialize updated bincode: {}", e),
+            )
+        })?;
+
+        // Create or open the specified file
+        let mut file = fs::File::create(filename).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Failed to create the specified file: {}", e),
+            )
+        })?;
+
+        // Write the serialized data to the file
+        file.write_all(&config_bytes)?;
+
         Ok(())
     }
 
