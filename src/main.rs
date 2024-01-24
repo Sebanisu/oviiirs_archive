@@ -27,18 +27,45 @@ fn main() -> io::Result<()> {
         save_toml(&config, &config_path)?;
     }
     loop {
-        println!(
-            "\nMain Menu\n\n\t{}: Change FF8 Directory (current: \"{}\") \n\t{}: Change Extract Directory (current: \"{}\") \n\t{}: Extract All Files \n\t{}: Change RegEx Filter (r\"{}\") \n\t{}: Rebuild Cache \n\t{}: Exit \n",
-            MainMenuSelection::ChangeFF8Directory as i32,
-            config.locations.chosen_directory,
-            MainMenuSelection::ChangeExtractDirectory as i32,
-            config.locations.extract_directory,
-            MainMenuSelection::ExtractAllFiles as i32,
-            MainMenuSelection::ChangeRegExFilter as i32,
-            config.extract_regex_filter,
-            MainMenuSelection::RebuildCache as i32,
-            MainMenuSelection::Exit as i32
-        );
+        let main_menu_options: Vec<(MainMenuSelection, Option<&str>, Option<&str>)> = vec![
+            (
+                MainMenuSelection::ChangeFF8Directory,
+                Some("current: "),
+                Some(&config.locations.chosen_directory),
+            ),
+            (
+                MainMenuSelection::ChangeExtractDirectory,
+                Some("current: "),
+                Some(&config.locations.extract_directory),
+            ),
+            (
+                MainMenuSelection::ChangeRegExFilter,
+                Some("r"),
+                Some(if config.extract_regex_filter.is_empty() {
+                    ".*"
+                } else {
+                    &config.extract_regex_filter
+                }),
+            ),
+            (MainMenuSelection::RebuildCache, None, None),
+            (MainMenuSelection::Exit, None, None),
+        ];
+        main_menu_options
+            .iter()
+            .for_each(|(label, attr, value)| match (label, attr, value) {
+                (label, Some(attr), Some(value)) => {
+                    println!("\t{}: {} ({}\"{}\")", *label as u32, label, attr, value);
+                }
+                (label, None, None) => {
+                    println!("\t{}: {}", *label as u32, label);
+                }
+                (_, &None, &Some(value)) => {
+                    println!("\t{}: {} (\"{}\")", *label as u32, label, value);
+                }
+                (_, &Some(value), &None) => {
+                    println!("\t{}: {} (\"{}\")", *label as u32, label, value);
+                }
+            });
 
         let mut user_input = String::new();
         io::stdin()

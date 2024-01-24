@@ -376,7 +376,7 @@ pub mod oviiirs_archive {
         Exit,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     pub enum MainMenuSelection {
         ChangeFF8Directory,
         ChangeExtractDirectory,
@@ -385,19 +385,6 @@ pub mod oviiirs_archive {
         RebuildCache,
         Exit,
     }
-
-    // impl ToString for MainMenuSelection {
-    //     fn to_string(&self) -> String {
-    //         match self {
-    //             MainMenuSelection::ChangeFF8Directory => "Change FF8 Directory".to_string(),
-    //             MainMenuSelection::ChangeExtractDirectory => "Change Extract Directory".to_string(),
-    //             MainMenuSelection::ExtractAllFiles => "Extract All Files".to_string(),
-    //             MainMenuSelection::ChangeRegExFilter => "Change RegEx Filter".to_string(),
-    //             MainMenuSelection::RebuildCache => "Rebuild Cache".to_string(),
-    //             MainMenuSelection::Exit => "Exit".to_string(),
-    //         }
-    //     }
-    // }
 
     #[derive(Debug)]
     pub enum ParseMainMenuError {
