@@ -10,6 +10,13 @@ mod lzss;
 use regex::Regex;
 use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
 
+use cursive::{views::Button, Cursive};
+use cursive::{
+    views::{Dialog, LinearLayout, TextView},
+    With,
+};
+use cursive_aligned_view::AlignedView;
+
 fn main() -> io::Result<()> {
     let config_path: String = "config.toml".to_string();
 
@@ -38,6 +45,7 @@ fn main() -> io::Result<()> {
                 Some("current: "),
                 Some(&config.locations.extract_directory),
             ),
+            (MainMenuSelection::ExtractAllFiles, None, None),
             (
                 MainMenuSelection::ChangeRegExFilter,
                 Some("r"),
@@ -50,22 +58,49 @@ fn main() -> io::Result<()> {
             (MainMenuSelection::RebuildCache, None, None),
             (MainMenuSelection::Exit, None, None),
         ];
-        main_menu_options
-            .iter()
-            .for_each(|(label, attr, value)| match (label, attr, value) {
+
+        // Create a Cursive instance
+        let mut siv = Cursive::default();
+
+        // Create a LinearLayout with vertical orientation
+
+        let mut layout = LinearLayout::vertical();
+
+        // Create a LinearLayout for the menu items
+
+        main_menu_options.iter().for_each(|(label, attr, value)| {
+            let text = match (label, attr, value) {
                 (label, Some(attr), Some(value)) => {
-                    println!("\t{}: {} ({}\"{}\")", *label as u32, label, attr, value);
+                    format!("{}: {} ({}\"{}\")", *label as u32, label, attr, value)
                 }
                 (label, None, None) => {
-                    println!("\t{}: {}", *label as u32, label);
+                    format!("{}: {}", *label as u32, label)
                 }
                 (_, &None, &Some(value)) => {
-                    println!("\t{}: {} (\"{}\")", *label as u32, label, value);
+                    format!("{}: {} (\"{}\")", *label as u32, label, value)
                 }
                 (_, &Some(value), &None) => {
-                    println!("\t{}: {} (\"{}\")", *label as u32, label, value);
+                    format!("{}: {} (\"{}\")", *label as u32, label, value)
                 }
+            };
+            let button = Button::new_raw(text.clone(), move |_s| {
+                
             });
+
+            layout.add_child(LinearLayout::horizontal().child(button));
+        });
+
+        // Create a Dialog with the LinearLayout
+        let dialog = Dialog::around(layout)
+            .title("Main Menu")
+            .button("Quit", |s| s.quit());
+
+        // Add the Dialog to the Cursive instance
+        siv.add_layer(dialog);
+
+        // Run the Cursive event loop
+        siv.run();
+        return Ok(());
 
         let mut user_input = String::new();
         io::stdin()
