@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     fs, io,
+    ops::Deref,
     path::{Path, PathBuf},
     process::exit,
 };
@@ -10,182 +11,201 @@ mod lzss;
 use regex::Regex;
 use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
 
+use cursive::views::{Dialog, LinearLayout};
 use cursive::{views::Button, Cursive};
-use cursive::{
-    views::{Dialog, LinearLayout, TextView},
-    With,
-};
-use cursive_aligned_view::AlignedView;
+
+use lazy_static::lazy_static;
+use std::sync::{Arc, Mutex};
+
+lazy_static! {
+    static ref CONFIG_PATH: String = "config.toml".to_string();
+    static ref SHARED_CONFIG: Arc<Mutex<Config>> = {
+        match load_toml_from_file::<Config>(&CONFIG_PATH) {
+            Ok(mut config) => {
+                // Perform operations on the config before returning Arc<Mutex<Config>>
+                config.locations.ensure_chosen_directory_in_directories();
+
+                // Return the Arc<Mutex<Config>>
+                Arc::new(Mutex::new(config))
+            }
+            Err(_) => {
+                // Provide a default configuration here
+                Arc::new(Mutex::new(Config::default()))
+            }
+        }
+    };
+}
+fn generate_main_menu_options() -> Vec<(MainMenuSelection, Option<String>, Option<String>)> {
+    // Create a scope for the lock and config assignment
+    let config: Config = {
+        let tmp = SHARED_CONFIG.lock().unwrap();
+        tmp.deref().clone()
+    };
+
+    // Use cloned values within this scope
+    vec![
+        (
+            MainMenuSelection::ChangeFF8Directory,
+            Some("current: ".to_string()),
+            Some(config.locations.chosen_directory.clone()),
+        ),
+        (
+            MainMenuSelection::ChangeExtractDirectory,
+            Some("current: ".to_string()),
+            Some(config.locations.extract_directory.clone()),
+        ),
+        (MainMenuSelection::ExtractAllFiles, None, None),
+        (
+            MainMenuSelection::ChangeRegExFilter,
+            Some("r".to_string()),
+            Some(if config.extract_regex_filter.is_empty() {
+                ".*".to_string()
+            } else {
+                config.extract_regex_filter.clone()
+            }),
+        ),
+        (MainMenuSelection::RebuildCache, None, None),
+        (MainMenuSelection::Exit, None, None),
+    ]
+    // MutexGuard is automatically released when it goes out of scope
+}
 
 fn main() -> io::Result<()> {
-    let config_path: String = "config.toml".to_string();
-
-    let mut config: Config = load_toml_from_file(&config_path)?;
-
-    config.locations.ensure_chosen_directory_in_directories();
-
     let has_chosen_directory = {
+        let config = SHARED_CONFIG.lock().unwrap();
         let path = Path::new(&config.locations.chosen_directory);
         path.exists() && path.is_dir()
     };
     if !has_chosen_directory {
+        let mut config = SHARED_CONFIG.lock().unwrap();
+
+        let config_path = &CONFIG_PATH;
         change_ff8_directory(&mut config);
 
-        save_toml(&config, &config_path)?;
+        save_toml(&*config, &config_path)?;
     }
-    loop {
-        let main_menu_options: Vec<(MainMenuSelection, Option<&str>, Option<&str>)> = vec![
-            (
-                MainMenuSelection::ChangeFF8Directory,
-                Some("current: "),
-                Some(&config.locations.chosen_directory),
-            ),
-            (
-                MainMenuSelection::ChangeExtractDirectory,
-                Some("current: "),
-                Some(&config.locations.extract_directory),
-            ),
-            (MainMenuSelection::ExtractAllFiles, None, None),
-            (
-                MainMenuSelection::ChangeRegExFilter,
-                Some("r"),
-                Some(if config.extract_regex_filter.is_empty() {
-                    ".*"
-                } else {
-                    &config.extract_regex_filter
-                }),
-            ),
-            (MainMenuSelection::RebuildCache, None, None),
-            (MainMenuSelection::Exit, None, None),
-        ];
 
-        // Create a Cursive instance
-        let mut siv = Cursive::default();
+    // Create a Cursive instance
+    let mut siv = Cursive::default();
 
-        // Create a LinearLayout with vertical orientation
+    // Create a LinearLayout with vertical orientation
 
-        let mut layout = LinearLayout::vertical();
+    let mut layout = LinearLayout::vertical();
 
-        // Create a LinearLayout for the menu items
-
-        main_menu_options.iter().for_each(|(label, attr, value)| {
+    // Create a LinearLayout for the menu items
+    generate_main_menu_options()
+        .into_iter()
+        .for_each(|(label, attr, value)| {
             let text = match (label, attr, value) {
                 (label, Some(attr), Some(value)) => {
-                    format!("{}: {} ({}\"{}\")", *label as u32, label, attr, value)
+                    format!("{}: {} ({}\"{}\")", label as u32, label, attr, value)
                 }
                 (label, None, None) => {
-                    format!("{}: {}", *label as u32, label)
+                    format!("{}: {}", label as u32, label)
                 }
-                (_, &None, &Some(value)) => {
-                    format!("{}: {} (\"{}\")", *label as u32, label, value)
+                (_, None, Some(value)) => {
+                    format!("{}: {} (\"{}\")", label as u32, label, value)
                 }
-                (_, &Some(value), &None) => {
-                    format!("{}: {} (\"{}\")", *label as u32, label, value)
+                (_, Some(value), None) => {
+                    format!("{}: {} (\"{}\")", label as u32, label, value)
                 }
             };
-            let button = Button::new_raw(text.clone(), move |_s| {
-                
+            let button = Button::new_raw(text.clone(), move |s| {
+                if let Err(err) = handle_button_click(&label.clone(), s) {
+                    // Print the error to the standard error stream
+                    eprintln!("Error: {}", err);
+                }
             });
 
             layout.add_child(LinearLayout::horizontal().child(button));
         });
 
-        // Create a Dialog with the LinearLayout
-        let dialog = Dialog::around(layout)
-            .title("Main Menu")
-            .button("Quit", |s| s.quit());
+    // Create a Dialog with the LinearLayout
+    let dialog = Dialog::around(layout)
+        .title("Main Menu")
+        .button("Quit", |s| s.quit());
 
-        // Add the Dialog to the Cursive instance
-        siv.add_layer(dialog);
+    // Add the Dialog to the Cursive instance
+    siv.add_layer(dialog);
 
-        // Run the Cursive event loop
-        siv.run();
-        return Ok(());
+    // Run the Cursive event loop
+    siv.run();
+    return Ok(());
+}
 
-        let mut user_input = String::new();
-        io::stdin()
-            .read_line(&mut user_input)
-            .expect("Failed to read user input");
+fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result<()> {
+    let mut config = SHARED_CONFIG.lock().unwrap();
 
-        user_input = user_input.trim().to_string();
+    let config_path = &CONFIG_PATH;
+    let cache_path = generate_native_path("cache");
+    let toml_path = cache_path.join("archives.toml").to_string();
+    let bincode_path = cache_path.join("archives.bin").to_string();
+    create_directories(&PathBuf::from(&toml_path))?;
+    // Perform actions based on the button click
+    match label {
+        MainMenuSelection::ChangeFF8Directory => {
+            change_ff8_directory(&mut config);
 
-        let cache_path = generate_native_path("cache");
-        let toml_path = cache_path.join("archives.toml").to_string();
-        let bincode_path = cache_path.join("archives.bin").to_string();
+            save_toml(&*config, &config_path)?;
+        }
+        MainMenuSelection::ChangeExtractDirectory => {
+            println!("\nEnter a new extract path: ");
+            let mut user_input_extract_path = String::new();
+            io::stdin()
+                .read_line(&mut user_input_extract_path)
+                .expect("Failed to read user input");
 
-        create_directories(&PathBuf::from(&toml_path))?;
-        match user_input.parse::<MainMenuSelection>() {
-            Ok(MainMenuSelection::ChangeFF8Directory) => {
-                change_ff8_directory(&mut config);
-
-                save_toml(&config, &config_path)?;
-            }
-            Ok(MainMenuSelection::ChangeExtractDirectory) => {
-                println!("\nEnter a new extract path: ");
-                let mut user_input_extract_path = String::new();
-                io::stdin()
-                    .read_line(&mut user_input_extract_path)
-                    .expect("Failed to read user input");
-
-                user_input_extract_path = user_input_extract_path.trim().to_string();
-                match is_valid_path(&user_input_extract_path) {
-                    true => {
-                        config.locations.extract_directory = user_input_extract_path;
-                        save_toml(&config, &config_path)?;
-                    }
-                    false => {
-                        eprintln!("Error not a valid path: \"{}\"\n", user_input_extract_path);
-                    }
+            user_input_extract_path = user_input_extract_path.trim().to_string();
+            match is_valid_path(&user_input_extract_path) {
+                true => {
+                    config.locations.extract_directory = user_input_extract_path;
+                    save_toml(&*config, &config_path)?;
                 }
-            }
-            Ok(MainMenuSelection::RebuildCache) => {
-                let zzz_files = load_archives(&config)?;
-                save_toml(&zzz_files, &toml_path)?;
-                save_bincode(&zzz_files, &bincode_path)?;
-            }
-            Ok(MainMenuSelection::ExtractAllFiles) => {
-                let zzz_files = load_or_rebuild_cache(&config, &toml_path, &bincode_path)?;
-
-                extract_all_files(&zzz_files, &config)?;
-            }
-            Ok(MainMenuSelection::ChangeRegExFilter) => {
-                println!("\nEnter a new extract RegEx filter: ");
-                let mut user_input_regex_filter = String::new();
-                io::stdin()
-                    .read_line(&mut user_input_regex_filter)
-                    .expect("Failed to read user input");
-
-                user_input_regex_filter = user_input_regex_filter.trim().to_string();
-
-                if user_input_regex_filter.is_empty() {
-                    config.extract_regex_filter.clear();
-                    save_toml(&config, &config_path)?;
-                } else if let Ok(_) = Regex::new(&user_input_regex_filter) {
-                    // The regex is valid
-                    config.extract_regex_filter = user_input_regex_filter;
-                    save_toml(&config, &config_path)?;
-                } else {
-                    eprintln!("Invalid RegEx r\"{}\"", user_input_regex_filter);
-                }
-            }
-            Ok(MainMenuSelection::Exit) => {
-                // Handle the case when the user chooses to exit
-                println!("Exiting...");
-                // Perform any necessary cleanup and exit the program
-                // You can return a default value here or use a placeholder value
-                //exit(0);
-                return Ok(());
-            }
-            Err(err) => {
-                match err {
-                    ParseMainMenuError::InvalidInput(msg) => {
-                        println!("Error Invalid Input: \"{}\"\n", msg);
-                        // Handle invalid input
-                    }
+                false => {
+                    eprintln!("Error not a valid path: \"{}\"\n", user_input_extract_path);
                 }
             }
         }
+        MainMenuSelection::RebuildCache => {
+            let zzz_files = load_archives(&config)?;
+            save_toml(&zzz_files, &toml_path)?;
+            save_bincode(&zzz_files, &bincode_path)?;
+        }
+        MainMenuSelection::ExtractAllFiles => {
+            let zzz_files = load_or_rebuild_cache(&config, &toml_path, &bincode_path)?;
+
+            extract_all_files(&zzz_files, &config)?;
+        }
+        MainMenuSelection::ChangeRegExFilter => {
+            println!("\nEnter a new extract RegEx filter: ");
+            let mut user_input_regex_filter = String::new();
+            io::stdin()
+                .read_line(&mut user_input_regex_filter)
+                .expect("Failed to read user input");
+
+            user_input_regex_filter = user_input_regex_filter.trim().to_string();
+
+            if user_input_regex_filter.is_empty() {
+                config.extract_regex_filter.clear();
+                save_toml(&*config, &config_path)?;
+            } else if let Ok(_) = Regex::new(&user_input_regex_filter) {
+                // The regex is valid
+                config.extract_regex_filter = user_input_regex_filter;
+                save_toml(&*config, &config_path)?;
+            } else {
+                eprintln!("Invalid RegEx r\"{}\"", user_input_regex_filter);
+            }
+        }
+        MainMenuSelection::Exit => {
+            // Handle the case when the user chooses to exit
+            println!("Exiting...");
+            // Perform any necessary cleanup and exit the program
+            // You can return a default value here or use a placeholder value
+            //exit(0);
+            s.quit();
+        }
     }
+    Ok(())
 }
 
 // Load data from bincode file if it exists, otherwise from TOML file or rebuild cache

@@ -271,14 +271,14 @@ pub mod oviiirs_archive {
 
     // Top level struct to hold the TOML data.
     // Config struct holds to data from the `[config]` section.
-    #[derive(Serialize, Deserialize, Default)]
+    #[derive(Serialize, Deserialize, Default, Clone)]
     pub struct Config {
         #[serde(default)]
         pub locations: Locations,
         pub extract_regex_filter: String,
     }
 
-    #[derive(Serialize, Deserialize, Default)]
+    #[derive(Serialize, Deserialize, Default, Clone)]
     pub struct Locations {
         #[serde(default)]
         pub chosen_directory: String,
