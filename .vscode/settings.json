@@ -1,0 +1,6 @@
+{
+    "lldb.launch.terminal": "external",
+    "lldb.launch.env": {
+        "RUST_BACKTRACE": "full"
+    }
+}
