@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     fs, io,
-    ops::Deref,
+    ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     process::exit,
 };
@@ -11,7 +11,7 @@ mod lzss;
 use regex::Regex;
 use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
 
-use cursive::views::{Dialog, LinearLayout};
+use cursive::views::{Dialog, LinearLayout, TextContent, TextView};
 use cursive::{views::Button, Cursive};
 
 use lazy_static::lazy_static;
@@ -34,6 +34,8 @@ lazy_static! {
             }
         }
     };
+    static ref TEXT_VIEW_MAP: Arc<Mutex<std::collections::HashMap<MainMenuSelection, TextContent>>> = Arc::new(Mutex::new(
+    std::collections::HashMap::new()));
 }
 
 fn generate_main_menu_options() -> Vec<(MainMenuSelection, Option<String>, Option<String>)> {
@@ -68,7 +70,6 @@ fn generate_main_menu_options() -> Vec<(MainMenuSelection, Option<String>, Optio
     ]
 }
 
-
 fn main() -> io::Result<()> {
     let has_chosen_directory = {
         let config = SHARED_CONFIG.lock().unwrap();
@@ -89,35 +90,7 @@ fn main() -> io::Result<()> {
 
     // Create a LinearLayout with vertical orientation
 
-    let mut layout = LinearLayout::vertical();
-
-    // Create a LinearLayout for the menu items
-    generate_main_menu_options()
-        .into_iter()
-        .for_each(|(label, attr, value)| {
-            let text = match (label, attr, value) {
-                (label, Some(attr), Some(value)) => {
-                    format!("{}: {} ({}\"{}\")", label as u32, label, attr, value)
-                }
-                (label, None, None) => {
-                    format!("{}: {}", label as u32, label)
-                }
-                (_, None, Some(value)) => {
-                    format!("{}: {} (\"{}\")", label as u32, label, value)
-                }
-                (_, Some(value), None) => {
-                    format!("{}: {} (\"{}\")", label as u32, label, value)
-                }
-            };
-            let button = Button::new_raw(text.clone(), move |s| {
-                if let Err(err) = handle_button_click(&label.clone(), s) {
-                    // Print the error to the standard error stream
-                    eprintln!("Error: {}", err);
-                }
-            });
-
-            layout.add_child(LinearLayout::horizontal().child(button));
-        });
+    let layout = create_layout();
 
     // Create a Dialog with the LinearLayout
     let dialog = Dialog::around(layout)
@@ -130,6 +103,70 @@ fn main() -> io::Result<()> {
     // Run the Cursive event loop
     siv.run();
     return Ok(());
+}
+
+fn create_layout() -> LinearLayout {
+    let mut layout = LinearLayout::vertical();
+
+    generate_main_menu_options()
+        .into_iter()
+        .for_each(|(label, attr, value)| {
+            let option_text = match (attr, value) {
+                (Some(attr), Some(value)) => Some(format!("({}\"{}\")", attr, value)),
+                (None, None) => None,
+                (None, Some(value)) | (Some(value), None) => Some(format!("(\"{}\")", value)),
+            };
+
+            let button_label = format!("{}: {}", label as u32, label);
+            let button = Button::new_raw(button_label.clone(), move |s| {
+                if let Err(err) = handle_button_click(&label.clone(), s) {
+                    eprintln!("Error: {}", err);
+                }
+            });
+
+            let mut text_view_mutex = TEXT_VIEW_MAP.lock();
+            let text_view_map = text_view_mutex.as_mut().unwrap().deref_mut();
+
+            if let Some(text) = option_text {
+                text_view_map.insert(label, TextContent::new(text));
+            }
+
+            if let Some(text_content) = text_view_map.get(&label) {
+                layout.add_child(
+                    LinearLayout::horizontal()
+                        .child(button)
+                        .child(TextView::new_with_content(text_content.clone())),
+                );
+            } else {
+                layout.add_child(LinearLayout::horizontal().child(button));
+            }
+        });
+
+    layout
+}
+
+fn update_layout_text() {
+    generate_main_menu_options()
+        .into_iter()
+        .for_each(|(label, attr, value)| {
+            let option_text = match (attr, value) {
+                (Some(attr), Some(value)) => Some(format!("({}\"{}\")", attr, value)),
+                (None, None) => None,
+                (None, Some(value)) | (Some(value), None) => Some(format!("(\"{}\")", value)),
+            };
+
+            if let Some(text) = option_text {
+                let mut text_view_mutex = TEXT_VIEW_MAP.lock();
+                if let Some(text_view) = text_view_mutex
+                    .as_mut()
+                    .unwrap()
+                    .deref_mut()
+                    .get_mut(&label)
+                {
+                    text_view.set_content(text);
+                }
+            }
+        });
 }
 
 fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result<()> {
@@ -146,6 +183,7 @@ fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result
             change_ff8_directory(&mut config);
 
             save_toml(&*config, &config_path)?;
+            update_layout_text();
         }
         MainMenuSelection::ChangeExtractDirectory => {
             println!("\nEnter a new extract path: ");
@@ -164,6 +202,8 @@ fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result
                     eprintln!("Error not a valid path: \"{}\"\n", user_input_extract_path);
                 }
             }
+
+            update_layout_text();
         }
         MainMenuSelection::RebuildCache => {
             let zzz_files = load_archives(&config)?;
@@ -194,6 +234,7 @@ fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result
             } else {
                 eprintln!("Invalid RegEx r\"{}\"", user_input_regex_filter);
             }
+            update_layout_text();
         }
         MainMenuSelection::Exit => {
             // Handle the case when the user chooses to exit
