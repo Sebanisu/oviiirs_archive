@@ -376,7 +376,7 @@ pub mod oviiirs_archive {
         Exit,
     }
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     pub enum MainMenuSelection {
         ChangeFF8Directory,
         ChangeExtractDirectory,
