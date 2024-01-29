@@ -35,14 +35,13 @@ lazy_static! {
         }
     };
 }
-fn generate_main_menu_options() -> Vec<(MainMenuSelection, Option<String>, Option<String>)> {
-    // Create a scope for the lock and config assignment
-    let config: Config = {
-        let tmp = SHARED_CONFIG.lock().unwrap();
-        tmp.deref().clone()
-    };
 
-    // Use cloned values within this scope
+fn generate_main_menu_options() -> Vec<(MainMenuSelection, Option<String>, Option<String>)> {
+    // Create a scope for the lock
+    let shared_config = SHARED_CONFIG.lock().unwrap();
+    let config = shared_config.deref();
+
+    // Use references within this scope
     vec![
         (
             MainMenuSelection::ChangeFF8Directory,
@@ -67,8 +66,8 @@ fn generate_main_menu_options() -> Vec<(MainMenuSelection, Option<String>, Optio
         (MainMenuSelection::RebuildCache, None, None),
         (MainMenuSelection::Exit, None, None),
     ]
-    // MutexGuard is automatically released when it goes out of scope
 }
+
 
 fn main() -> io::Result<()> {
     let has_chosen_directory = {
