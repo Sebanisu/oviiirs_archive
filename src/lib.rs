@@ -412,7 +412,7 @@ pub mod oviiirs_archive {
         type Err = ParseMainMenuError;
 
         fn from_str(s: &str) -> Result<Self, ParseMainMenuError> {
-            match s {
+            match s.trim() {
                 s if s == format!("{}", MainMenuSelection::ChangeFF8Directory as u32) => {
                     Ok(MainMenuSelection::ChangeFF8Directory)
                 }

@@ -4,15 +4,13 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     process::exit,
+    str::FromStr,
 };
 
 use oviiirs_archive::oviiirs_archive::*;
 mod lzss;
 use regex::Regex;
 use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
-
-use cursive::views::{Dialog, LinearLayout, TextContent, TextView};
-use cursive::{views::Button, Cursive};
 
 use lazy_static::lazy_static;
 use std::sync::{Arc, Mutex};
@@ -34,7 +32,7 @@ lazy_static! {
             }
         }
     };
-    static ref TEXT_VIEW_MAP: Arc<Mutex<std::collections::HashMap<MainMenuSelection, TextContent>>> = Arc::new(Mutex::new(
+    static ref TEXT_VIEW_MAP: Arc<Mutex<std::collections::HashMap<MainMenuSelection, String>>> = Arc::new(Mutex::new(
     std::collections::HashMap::new()));
 }
 
@@ -85,64 +83,58 @@ fn main() -> io::Result<()> {
         save_toml(&*config, &config_path)?;
     }
 
-    // Create a Cursive instance
-    let mut siv = Cursive::default();
+    create_layout()?;
 
-    // Create a LinearLayout with vertical orientation
-
-    let layout = create_layout();
-
-    // Create a Dialog with the LinearLayout
-    let dialog = Dialog::around(layout)
-        .title("Main Menu")
-        .button("Quit", |s| s.quit());
-
-    // Add the Dialog to the Cursive instance
-    siv.add_layer(dialog);
-
-    // Run the Cursive event loop
-    siv.run();
     return Ok(());
 }
 
-fn create_layout() -> LinearLayout {
-    let mut layout = LinearLayout::vertical();
+fn create_layout() -> io::Result<()> {
+    loop {
+        generate_main_menu_options()
+            .into_iter()
+            .for_each(|(label, attr, value)| {
+                let option_text = match (attr, value) {
+                    (Some(attr), Some(value)) => Some(format!("({}\"{}\")", attr, value)),
+                    (None, None) => None,
+                    (None, Some(value)) | (Some(value), None) => Some(format!("(\"{}\")", value)),
+                };
 
-    generate_main_menu_options()
-        .into_iter()
-        .for_each(|(label, attr, value)| {
-            let option_text = match (attr, value) {
-                (Some(attr), Some(value)) => Some(format!("({}\"{}\")", attr, value)),
-                (None, None) => None,
-                (None, Some(value)) | (Some(value), None) => Some(format!("(\"{}\")", value)),
-            };
+                let button_label = format!("{}: {}", label as u32, label);
 
-            let button_label = format!("{}: {}", label as u32, label);
-            let button = Button::new_raw(button_label.clone(), move |s| {
-                if let Err(err) = handle_button_click(&label.clone(), s) {
-                    eprintln!("Error: {}", err);
+                let mut text_view_mutex = TEXT_VIEW_MAP.lock();
+                let text_view_map = text_view_mutex.as_mut().unwrap().deref_mut();
+
+                if let Some(text) = option_text {
+                    text_view_map.insert(label, text);
+                }
+
+                if let Some(text_content) = text_view_map.get(&label) {
+                    println!("   {} {}", button_label, text_content);
+                } else {
+                    println!("   {}", button_label);
                 }
             });
 
-            let mut text_view_mutex = TEXT_VIEW_MAP.lock();
-            let text_view_map = text_view_mutex.as_mut().unwrap().deref_mut();
+        let mut input = String::new();
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
 
-            if let Some(text) = option_text {
-                text_view_map.insert(label, TextContent::new(text));
+        match MainMenuSelection::from_str(&input) {
+            Ok(selection) => {
+                println!("Parsed selection: {:?}", selection);
+                // Now you can use the parsed selection as needed
+                if selection == MainMenuSelection::Exit {
+                    break;
+                }
+                handle_button_click(&selection)?;
             }
-
-            if let Some(text_content) = text_view_map.get(&label) {
-                layout.add_child(
-                    LinearLayout::horizontal()
-                        .child(button)
-                        .child(TextView::new_with_content(text_content.clone())),
-                );
-            } else {
-                layout.add_child(LinearLayout::horizontal().child(button));
+            Err(err) => {
+                println!("Error parsing input: {:?}", err);
             }
-        });
-
-    layout
+        }
+    }
+    return Ok(());
 }
 
 fn update_layout_text() {
@@ -163,13 +155,13 @@ fn update_layout_text() {
                     .deref_mut()
                     .get_mut(&label)
                 {
-                    text_view.set_content(text);
+                    *text_view = text;
                 }
             }
         });
 }
 
-fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result<()> {
+fn handle_button_click(label: &MainMenuSelection) -> io::Result<()> {
     let mut config = SHARED_CONFIG.lock().unwrap();
 
     let config_path = &CONFIG_PATH;
@@ -241,8 +233,7 @@ fn handle_button_click(label: &MainMenuSelection, s: &mut Cursive) -> io::Result
             println!("Exiting...");
             // Perform any necessary cleanup and exit the program
             // You can return a default value here or use a placeholder value
-            //exit(0);
-            s.quit();
+            exit(0);
         }
     }
     Ok(())
@@ -287,6 +278,7 @@ fn is_valid_path(path_str: &str) -> bool {
 fn change_ff8_directory(config: &mut Config) {
     let directories = filter_valid_directories(&config.locations.directories);
     let user_choice = display_directory_info(&directories, &config.locations.chosen_directory);
+    // display_directory_info();
 
     config.locations.chosen_directory = match user_choice {
         DirectorySelection::NewDirectory(new_dir) => {
