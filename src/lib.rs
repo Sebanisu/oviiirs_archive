@@ -69,7 +69,7 @@ pub mod oviiirs_archive {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+    #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
     #[repr(C)]
     pub struct FI {
         pub uncompressed_size: u32,
@@ -256,43 +256,28 @@ pub mod oviiirs_archive {
     }
 
     pub trait ReadEntry: DeserializeOwned {
-        fn read_entry(cursor: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
-            let cursor_position = cursor.position() as usize;
-            let cursor_data = cursor.get_ref();
+        fn read_entry<R: Read>(reader: &mut R) -> io::Result<Self> {
+            // Buffer to hold the data to be deserialized
+            let mut buffer = vec![0; std::mem::size_of::<Self>()];
 
-            // Ensure that there's enough data remaining in the cursor for deserialization
-            let remaining_bytes = cursor_data.len() - cursor_position;
-            if remaining_bytes < std::mem::size_of::<Self>() {
-                return Err(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "Insufficient data for deserialization",
-                ));
-            }
+            // Read data from the reader into the buffer
+            reader.read_exact(&mut buffer)?;
 
-            // Get a slice of the data from the current cursor position, exactly the size of Self
-            let data_slice =
-                &cursor_data[cursor_position..cursor_position + std::mem::size_of::<Self>()];
-
-            // Deserialize the slice into the desired type
-            let result = bincode::deserialize(data_slice).map_err(|err| match *err {
+            // Deserialize the buffer into the desired type
+            let result = bincode::deserialize(&buffer).map_err(|err| match *err {
                 bincode::ErrorKind::Io(io_err) => io_err,
                 _ => io::Error::new(io::ErrorKind::InvalidData, err),
             })?;
-
-            // Move the cursor forward by the size of Self
-            let new_position = cursor_position + std::mem::size_of::<Self>();
-            cursor.set_position(new_position as u64);
 
             Ok(result)
         }
     }
 
-    // Implementing ReadEntries trait
     trait ReadEntries: ReadEntry {
-        fn read_entries(cursor: &mut Cursor<Vec<u8>>) -> io::Result<Vec<Self>> {
+        fn read_entries<R: Read>(reader: &mut R) -> io::Result<Vec<Self>> {
             let mut vec: Vec<Self> = vec![];
             loop {
-                match Self::read_entry(cursor) {
+                match Self::read_entry(reader) {
                     Ok(item) => {
                         vec.push(item);
                     }
@@ -316,6 +301,71 @@ pub mod oviiirs_archive {
     // Implement ReadEntry for FI
     impl ReadEntry for FI {}
     impl ReadEntries for FI {}
+
+    #[test]
+    fn test_read_write_entries() {
+        // Sample data to write
+        let data_to_write = vec![
+            FI {
+                uncompressed_size: 1,
+                offset: 2,
+                compression_type: CompressionTypeT::Lz4,
+            },
+            FI {
+                uncompressed_size: 4,
+                offset: 3,
+                compression_type: CompressionTypeT::None,
+            },
+            FI {
+                uncompressed_size: 5,
+                offset: 6,
+                compression_type: CompressionTypeT::Lzss,
+            },
+            FI::default(),
+        ];
+
+        // Write the data to a writer
+        let mut writer: Vec<u8> = Vec::new();
+        FI::write_entries(&mut writer, &data_to_write).unwrap();
+
+        // Read the written data back from a reader
+        let mut reader = Cursor::new(writer);
+        let read_data = FI::read_entries(&mut reader).unwrap();
+
+        // Ensure that the read data matches the written data
+        assert_eq!(data_to_write, read_data);
+    }
+
+    pub trait WriteEntry: Serialize {
+        fn write_entry<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+            // Serialize self into bytes
+            let serialized = bincode::serialize(self).map_err(|err| match *err {
+                bincode::ErrorKind::Io(io_err) => io_err,
+                _ => io::Error::new(io::ErrorKind::InvalidData, err),
+            })?;
+
+            // Write the serialized bytes to the writer
+            writer.write_all(&serialized)?;
+
+            Ok(())
+        }
+    }
+
+    trait WriteEntries: WriteEntry {
+        fn write_entries<W: Write>(writer: &mut W, entries: &[Self]) -> io::Result<()>
+        where
+            Self: Sized
+        {
+            for entry in entries {
+                entry.write_entry(writer)?;
+            }
+            Ok(())
+        }
+    }
+
+    // Implement WriteEntry and WriteEntries for FI
+    impl WriteEntry for FI {}
+    impl WriteEntries for FI {}
 
     pub trait ConvertFromZZZEntryAndFile: Sized {
         fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<Self>;
@@ -341,13 +391,6 @@ pub mod oviiirs_archive {
                     entry.file_size as usize,
                 )?,
             };
-            if buffer.len() != entry.file_size as usize {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Buffer size doesn't match entry.file_size",
-                ));
-            }
-
             let mut cursor = io::Cursor::new(buffer);
 
             fifile.entries = FI::read_entries(&mut cursor)?;
