@@ -445,7 +445,7 @@ where
 
         if archive.fl_file.is_none() || archive.fi_file.as_ref().unwrap().entries.is_empty() {
             archive.fl_file = Some(archive.fl_file.take().map_or_else(
-                || FL::from_zzz_entry_and_file(&archive.fl, &archive.file_path),
+                || FLfile::from_zzz_entry_and_file(&archive.fl, &archive.file_path),
                 Ok,
             )?);
         }

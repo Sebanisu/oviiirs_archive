@@ -399,8 +399,8 @@ pub mod oviiirs_archive {
         }
     }
 
-    impl ConvertFromZZZEntryAndFile for FL {
-        fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FL> {
+    impl ConvertFromZZZEntryAndFile for FLfile {
+        fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FLfile> {
             // Open the file specified by file_path for reading
             let buffer_bytes = match entry.compression_type {
                 CompressionTypeT::None => {
@@ -422,7 +422,7 @@ pub mod oviiirs_archive {
             let mut reader = BufReader::new(cursor);
 
             // Create a FL struct to hold the entries
-            let mut fl = FL::default();
+            let mut fl = FLfile::default();
 
             fl.file_path = entry.string_data.clone();
 
@@ -460,7 +460,7 @@ pub mod oviiirs_archive {
     }
 
     #[derive(Debug, Deserialize, Serialize, Default, Clone)]
-    pub struct FL {
+    pub struct FLfile {
         pub file_path: String,
         pub entries: Vec<String>,
     }
@@ -510,7 +510,7 @@ pub mod oviiirs_archive {
         pub fl: ZZZEntry,
         pub fs: ZZZEntry,
         pub fi_file: Option<FIfile>,
-        pub fl_file: Option<FL>,
+        pub fl_file: Option<FLfile>,
         pub field_archives: Option<Vec<FIFLFSZZZ>>,
     }
 
@@ -977,7 +977,7 @@ pub mod oviiirs_archive {
 
         let fi_file = FIfile::from_zzz_entry_and_file(&archive.fi, &file_path)?;
 
-        let fl_file = FL::from_zzz_entry_and_file(&archive.fl, &file_path)?;
+        let fl_file = FLfile::from_zzz_entry_and_file(&archive.fl, &file_path)?;
 
         let entries = fi_file.entries.iter().zip(&fl_file.entries);
 
