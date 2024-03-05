@@ -4,8 +4,7 @@ pub use oviiirs_archive::{
     generate_zzz_filename, load_bincode_from_file, load_toml_from_file, lz4_decompress,
     process_files_in_directory, read_bytes_from_file, read_bytes_from_memory,
     read_compressed_bytes_from_file_at_offset_lz4, read_compressed_bytes_from_file_at_offset_lzss,
-    read_compressed_bytes_from_memory_at_offset_lzss, read_data_from_file,
-    read_fi_entries_from_file, read_fl_entries_from_file, save_bincode, save_toml,
+    read_compressed_bytes_from_memory_at_offset_lzss, read_data_from_file, save_bincode, save_toml,
     write_bytes_to_file, CompressionTypeT, DirectorySelection,
 };
 mod lzss;
@@ -71,6 +70,7 @@ pub mod oviiirs_archive {
     }
 
     #[derive(Debug, Serialize, Deserialize, Default, Clone)]
+    #[repr(C)]
     pub struct FI {
         pub uncompressed_size: u32,
         pub offset: u32,
@@ -84,6 +84,7 @@ pub mod oviiirs_archive {
     }
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+    #[repr(u32)]
     pub enum CompressionTypeT {
         None,
         Lzss,
@@ -252,6 +253,100 @@ pub mod oviiirs_archive {
         pub file_offset: u64,
         pub file_size: u32,
         pub compression_type: CompressionTypeT, //this doesn't exist in the ZZZ file but it does in FIFLFS.
+    }
+
+    pub trait ConvertFromZZZEntryAndFile: Sized {
+        fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<Self>;
+    }
+
+    impl ConvertFromZZZEntryAndFile for FIfile {
+        fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<Self> {
+            // Create a FIfile struct to hold the entries
+            let mut fifile = FIfile::default();
+            fifile.file_path = entry.string_data.clone();
+
+            // Technically you don't need to always read the whole fi into memory except when it or it's parents are compressed. Just a simplication to load it into memory. You could always calculate the position from the fl file. Index*12 = the offset of an entry.
+            let buffer = match entry.compression_type {
+                CompressionTypeT::None => {
+                    read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?
+                }
+                CompressionTypeT::Lzss => crate::lzss::decompress(
+                    &read_compressed_bytes_from_file_at_offset_lzss(&file_path, entry.file_offset)?,
+                    entry.file_size as usize,
+                ),
+                CompressionTypeT::Lz4 => lz4_decompress(
+                    &read_compressed_bytes_from_file_at_offset_lz4(&file_path, entry.file_offset)?,
+                    entry.file_size as usize,
+                )?,
+            };
+
+            let mut cursor = io::Cursor::new(buffer);
+
+            while cursor.position() < entry.file_size as u64 {
+                match bincode::deserialize::<FI>(&read_bytes(
+                    &mut cursor,
+                    std::mem::size_of::<FI>(),
+                )?) {
+                    Ok(fi) => {
+                        fifile.entries.push(fi);
+                    }
+                    Err(error) => eprintln!("error: {error}"),
+                }
+            }
+
+            Ok(fifile)
+        }
+    }
+
+    impl ConvertFromZZZEntryAndFile for FL {
+        fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FL> {
+            // Open the file specified by file_path for reading
+            let buffer_bytes = match entry.compression_type {
+                CompressionTypeT::None => {
+                    read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?
+                }
+                CompressionTypeT::Lzss => crate::lzss::decompress(
+                    &read_compressed_bytes_from_file_at_offset_lzss(&file_path, entry.file_offset)?,
+                    entry.file_size as usize,
+                ),
+                CompressionTypeT::Lz4 => lz4_decompress(
+                    &read_compressed_bytes_from_file_at_offset_lz4(&file_path, entry.file_offset)?,
+                    entry.file_size as usize,
+                )?,
+            };
+
+            let cursor = Cursor::new(buffer_bytes);
+
+            // Initialize a BufReader for efficient reading
+            let mut reader = BufReader::new(cursor);
+
+            // Create a FL struct to hold the entries
+            let mut fl = FL::default();
+
+            fl.file_path = entry.string_data.clone();
+
+            // Read strings separated by newlines up to (file_offset + file_size)
+            let mut buffer = String::new();
+
+            loop {
+                match reader.read_line(&mut buffer) {
+                    Ok(bytes_of_line) => {
+                        if bytes_of_line == 0 {
+                            break;
+                        }
+                    }
+                    Err(error) => eprintln!("error: {error}"),
+                }
+
+                // Add the read line to FL.entries
+                fl.entries.push(buffer.trim().to_string());
+
+                // Clear the buffer for the next line
+                buffer.clear();
+            }
+
+            Ok(fl)
+        }
     }
 
     #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -747,89 +842,6 @@ pub mod oviiirs_archive {
         zzz_filename
     }
 
-    pub fn read_fl_entries_from_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FL> {
-        // Open the file specified by file_path for reading
-        let buffer_bytes = match entry.compression_type {
-            CompressionTypeT::None => {
-                read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?
-            }
-            CompressionTypeT::Lzss => crate::lzss::decompress(
-                &read_compressed_bytes_from_file_at_offset_lzss(&file_path, entry.file_offset)?,
-                entry.file_size as usize,
-            ),
-            CompressionTypeT::Lz4 => lz4_decompress(
-                &read_compressed_bytes_from_file_at_offset_lz4(&file_path, entry.file_offset)?,
-                entry.file_size as usize,
-            )?,
-        };
-
-        let cursor = Cursor::new(buffer_bytes);
-
-        // Initialize a BufReader for efficient reading
-        let mut reader = BufReader::new(cursor);
-
-        // Create a FL struct to hold the entries
-        let mut fl = FL::default();
-
-        fl.file_path = entry.string_data.clone();
-
-        // Read strings separated by newlines up to (file_offset + file_size)
-        let mut buffer = String::new();
-
-        loop {
-            match reader.read_line(&mut buffer) {
-                Ok(bytes_of_line) => {
-                    if bytes_of_line == 0 {
-                        break;
-                    }
-                }
-                Err(error) => eprintln!("error: {error}"),
-            }
-
-            // Add the read line to FL.entries
-            fl.entries.push(buffer.trim().to_string());
-
-            // Clear the buffer for the next line
-            buffer.clear();
-        }
-
-        Ok(fl)
-    }
-
-    pub fn read_fi_entries_from_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FIfile> {
-        // Create a FIfile struct to hold the entries
-        let mut fifile = FIfile::default();
-        fifile.file_path = entry.string_data.clone();
-
-        // Technically you don't need to always read the whole fi into memory except when it or it's parents are compressed. Just a simplication to load it into memory. You could always calculate the position from the fl file. Index*12 = the offset of an entry.
-        let buffer = match entry.compression_type {
-            CompressionTypeT::None => {
-                read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?
-            }
-            CompressionTypeT::Lzss => crate::lzss::decompress(
-                &read_compressed_bytes_from_file_at_offset_lzss(&file_path, entry.file_offset)?,
-                entry.file_size as usize,
-            ),
-            CompressionTypeT::Lz4 => lz4_decompress(
-                &read_compressed_bytes_from_file_at_offset_lz4(&file_path, entry.file_offset)?,
-                entry.file_size as usize,
-            )?,
-        };
-
-        let mut cursor = io::Cursor::new(buffer);
-
-        while cursor.position() < entry.file_size as u64 {
-            match bincode::deserialize::<FI>(&read_bytes(&mut cursor, std::mem::size_of::<FI>())?) {
-                Ok(fi) => {
-                    fifile.entries.push(fi);
-                }
-                Err(error) => eprintln!("error: {error}"),
-            }
-        }
-
-        Ok(fifile)
-    }
-
     pub fn generate_new_filename(path: &str) -> String {
         let path_buf = Utf8WindowsPath::new(path);
         let filename = path_buf.file_name().unwrap().to_string();
@@ -862,9 +874,9 @@ pub mod oviiirs_archive {
 
         let file_path = &archive.file_path;
 
-        let fi_file = read_fi_entries_from_file(&archive.fi, &file_path)?;
+        let fi_file = FIfile::from_zzz_entry_and_file(&archive.fi, &file_path)?;
 
-        let fl_file = read_fl_entries_from_file(&archive.fl, &file_path)?;
+        let fl_file = FL::from_zzz_entry_and_file(&archive.fl, &file_path)?;
 
         let entries = fi_file.entries.iter().zip(&fl_file.entries);
 

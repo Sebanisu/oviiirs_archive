@@ -438,14 +438,14 @@ where
         // Now you can use `archive` as a mutable reference
         if archive.fi_file.is_none() || archive.fi_file.as_ref().unwrap().entries.is_empty() {
             archive.fi_file = Some(archive.fi_file.take().map_or_else(
-                || read_fi_entries_from_file(&archive.fi, &archive.file_path),
+                || FIfile::from_zzz_entry_and_file(&archive.fi, &archive.file_path),
                 Ok,
             )?);
         }
 
         if archive.fl_file.is_none() || archive.fi_file.as_ref().unwrap().entries.is_empty() {
             archive.fl_file = Some(archive.fl_file.take().map_or_else(
-                || read_fl_entries_from_file(&archive.fl, &archive.file_path),
+                || FL::from_zzz_entry_and_file(&archive.fl, &archive.file_path),
                 Ok,
             )?);
         }
