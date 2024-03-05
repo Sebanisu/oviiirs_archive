@@ -354,7 +354,7 @@ pub mod oviiirs_archive {
     impl<T: WriteEntry> WriteEntry for [T] {
         fn write_entry<W: Write>(&self, writer: &mut W) -> io::Result<()>
         where
-            T: Sized
+            T: Sized,
         {
             for entry in self {
                 entry.write_entry(writer)?;
