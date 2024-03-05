@@ -24,6 +24,7 @@ pub mod oviiirs_archive {
     use std::io::Seek;
     use std::io::SeekFrom;
     use std::io::Write;
+    use std::ops::Deref;
     use std::path::Path;
     use std::path::PathBuf;
     use toml;
@@ -399,6 +400,28 @@ pub mod oviiirs_archive {
         }
     }
 
+    pub trait BufReadEntry: DeserializeOwned {
+        fn read_entry<R: BufRead>(reader: &mut R) -> io::Result<Self>;
+    }
+
+    impl BufReadEntry for FL {
+        fn read_entry<R: BufRead>(reader: &mut R) -> io::Result<Self> {
+            // Read strings separated by newlines up to (file_offset + file_size)
+            let mut buffer = String::new();
+            match reader.read_line(&mut buffer) {
+                Ok(bytes_of_line) if bytes_of_line == 0 => Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "Unexpected end of file",
+                )),
+                Ok(_) => Ok(buffer.trim().to_string().into()),
+                Err(error) => {
+                    eprintln!("Error: {}", error);
+                    Err(error)
+                }
+            }
+        }
+    }
+
     impl ConvertFromZZZEntryAndFile for FLfile {
         fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<FLfile> {
             // Open the file specified by file_path for reading
@@ -426,24 +449,26 @@ pub mod oviiirs_archive {
 
             fl.file_path = entry.string_data.clone();
 
-            // Read strings separated by newlines up to (file_offset + file_size)
-            let mut buffer = String::new();
-
             loop {
-                match reader.read_line(&mut buffer) {
-                    Ok(bytes_of_line) => {
-                        if bytes_of_line == 0 {
-                            break;
-                        }
-                    }
-                    Err(error) => eprintln!("error: {error}"),
-                }
-
                 // Add the read line to FL.entries
-                fl.entries.push(buffer.trim().to_string());
 
-                // Clear the buffer for the next line
-                buffer.clear();
+                match FL::read_entry(&mut reader) {
+                    Ok(item) => {
+                        fl.entries.push(item);
+                    }
+                    Err(error) => {
+                        return match error.kind() {
+                            io::ErrorKind::UnexpectedEof => {
+                                //println!("Cursor is already at the end of the data.");
+                                break;
+                            }
+                            _ => {
+                                eprintln!("Error occurred: {}", error);
+                                Err(error)
+                            }
+                        };
+                    }
+                }
             }
 
             Ok(fl)
@@ -459,10 +484,33 @@ pub mod oviiirs_archive {
         pub fiflfs_files: Option<Vec<FIFLFSZZZ>>,
     }
 
+    #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+    pub struct FL(String);
+
+    impl From<String> for FL {
+        fn from(s: String) -> Self {
+            FL(s)
+        }
+    }
+
+    impl From<FL> for String {
+        fn from(fl: FL) -> Self {
+            fl.0
+        }
+    }
+
+    impl Deref for FL {
+        type Target = String;
+
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
     #[derive(Debug, Deserialize, Serialize, Default, Clone)]
     pub struct FLfile {
         pub file_path: String,
-        pub entries: Vec<String>,
+        pub entries: Vec<FL>,
     }
 
     // Top level struct to hold the TOML data.
@@ -988,7 +1036,7 @@ pub mod oviiirs_archive {
                 .or_insert_with(FIFLFSZZZTemp::default)
                 .push(ZZZEntry {
                     string_length: entry.1.len() as u32,
-                    string_data: entry.1.clone(),
+                    string_data: entry.1.to_string(),
                     file_offset: entry.0.offset as u64 + archive.fs.file_offset,
                     file_size: entry.0.uncompressed_size,
                     compression_type: entry.0.compression_type,
