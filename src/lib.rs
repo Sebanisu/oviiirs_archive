@@ -255,6 +255,68 @@ pub mod oviiirs_archive {
         pub compression_type: CompressionTypeT, //this doesn't exist in the ZZZ file but it does in FIFLFS.
     }
 
+    pub trait ReadEntry: DeserializeOwned {
+        fn read_entry(cursor: &mut Cursor<Vec<u8>>) -> io::Result<Self> {
+            let cursor_position = cursor.position() as usize;
+            let cursor_data = cursor.get_ref();
+
+            // Ensure that there's enough data remaining in the cursor for deserialization
+            let remaining_bytes = cursor_data.len() - cursor_position;
+            if remaining_bytes < std::mem::size_of::<Self>() {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "Insufficient data for deserialization",
+                ));
+            }
+
+            // Get a slice of the data from the current cursor position, exactly the size of Self
+            let data_slice =
+                &cursor_data[cursor_position..cursor_position + std::mem::size_of::<Self>()];
+
+            // Deserialize the slice into the desired type
+            let result = bincode::deserialize(data_slice).map_err(|err| match *err {
+                bincode::ErrorKind::Io(io_err) => io_err,
+                _ => io::Error::new(io::ErrorKind::InvalidData, err),
+            })?;
+
+            // Move the cursor forward by the size of Self
+            let new_position = cursor_position + std::mem::size_of::<Self>();
+            cursor.set_position(new_position as u64);
+
+            Ok(result)
+        }
+    }
+
+    // Implementing ReadEntries trait
+    trait ReadEntries: ReadEntry {
+        fn read_entries(cursor: &mut Cursor<Vec<u8>>) -> io::Result<Vec<Self>> {
+            let mut vec: Vec<Self> = vec![];
+            loop {
+                match Self::read_entry(cursor) {
+                    Ok(item) => {
+                        vec.push(item);
+                    }
+                    Err(error) => {
+                        return match error.kind() {
+                            io::ErrorKind::UnexpectedEof => {
+                                //println!("Cursor is already at the end of the data.");
+                                Ok(vec)
+                            }
+                            _ => {
+                                eprintln!("Error occurred: {}", error);
+                                Err(error)
+                            }
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    // Implement ReadEntry for FI
+    impl ReadEntry for FI {}
+    impl ReadEntries for FI {}
+
     pub trait ConvertFromZZZEntryAndFile: Sized {
         fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<Self>;
     }
@@ -279,20 +341,16 @@ pub mod oviiirs_archive {
                     entry.file_size as usize,
                 )?,
             };
+            if buffer.len() != entry.file_size as usize {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Buffer size doesn't match entry.file_size",
+                ));
+            }
 
             let mut cursor = io::Cursor::new(buffer);
 
-            while cursor.position() < entry.file_size as u64 {
-                match bincode::deserialize::<FI>(&read_bytes(
-                    &mut cursor,
-                    std::mem::size_of::<FI>(),
-                )?) {
-                    Ok(fi) => {
-                        fifile.entries.push(fi);
-                    }
-                    Err(error) => eprintln!("error: {error}"),
-                }
-            }
+            fifile.entries = FI::read_entries(&mut cursor)?;
 
             Ok(fifile)
         }
