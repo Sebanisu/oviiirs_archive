@@ -326,7 +326,7 @@ pub mod oviiirs_archive {
 
         // Write the data to a writer
         let mut writer: Vec<u8> = Vec::new();
-        data_to_write.write_entry(&mut writer).unwrap();
+        data_to_write.write_entries(&mut writer).unwrap();
 
         // Read the written data back from a reader
         let mut reader = Cursor::new(writer);
@@ -351,11 +351,12 @@ pub mod oviiirs_archive {
         }
     }
 
-    impl<T: WriteEntry> WriteEntry for [T] {
-        fn write_entry<W: Write>(&self, writer: &mut W) -> io::Result<()>
-        where
-            T: Sized,
-        {
+    trait WriteEntries {
+        fn write_entries<W: Write>(&self, writer: &mut W) -> io::Result<()>;
+    }
+
+    impl<T: WriteEntry> WriteEntries for [T] {
+        fn write_entries<W: Write>(&self, writer: &mut W) -> io::Result<()> {
             for entry in self {
                 entry.write_entry(writer)?;
             }
