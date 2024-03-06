@@ -332,7 +332,7 @@ pub mod oviiirs_archive {
     impl BufReadEntries for FL {}
 
     #[test]
-    fn test_read_write_entries() {
+    fn test_fi_read_write_entries() {
         // Sample data to write
         let data_to_write = vec![
             FI {
@@ -360,6 +360,28 @@ pub mod oviiirs_archive {
         // Read the written data back from a reader
         let mut reader = Cursor::new(writer);
         let read_data = FI::read_entries(&mut reader).unwrap();
+
+        // Ensure that the read data matches the written data
+        assert_eq!(data_to_write, read_data);
+    }
+
+    #[test]
+    fn test_fl_read_write_entries() {
+        // Sample data to write
+        let data_to_write = vec![
+            FL(String::from("entry1")),
+            FL(String::from("entry2")),
+            FL(String::from("entry3")),
+            FL::default(),
+        ];
+
+        // Write the data to a writer
+        let mut writer: Vec<u8> = Vec::new();
+        data_to_write.write_entries(&mut writer).unwrap();
+
+        // Read the written data back from a reader
+        let mut reader = Cursor::new(writer);
+        let read_data = FL::read_entries(&mut reader).unwrap();
 
         // Ensure that the read data matches the written data
         assert_eq!(data_to_write, read_data);
@@ -496,7 +518,7 @@ pub mod oviiirs_archive {
         pub fiflfs_files: Option<Vec<FIFLFSZZZ>>,
     }
 
-    #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
     pub struct FL(String);
 
     impl From<String> for FL {
@@ -518,7 +540,7 @@ pub mod oviiirs_archive {
             &self.0
         }
     }
-    
+
     impl fmt::Display for FL {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "{}", self.0)
