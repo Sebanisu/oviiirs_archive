@@ -303,6 +303,34 @@ pub mod oviiirs_archive {
     impl ReadEntry for FI {}
     impl ReadEntries for FI {}
 
+    trait BufReadEntries: BufReadEntry {
+        fn read_entries<R: BufRead>(reader: &mut R) -> io::Result<Vec<Self>> {
+            let mut vec: Vec<Self> = vec![];
+            loop {
+                match Self::read_entry(reader) {
+                    Ok(item) => {
+                        vec.push(item);
+                    }
+                    Err(error) => {
+                        return match error.kind() {
+                            io::ErrorKind::UnexpectedEof => {
+                                //println!("Cursor is already at the end of the data.");
+                                Ok(vec)
+                            }
+                            _ => {
+                                eprintln!("Error occurred: {}", error);
+                                Err(error)
+                            }
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    // Implement ReadEntry for FI
+    impl BufReadEntries for FL {}
+
     #[test]
     fn test_read_write_entries() {
         // Sample data to write
@@ -374,10 +402,6 @@ pub mod oviiirs_archive {
 
     impl ConvertFromZZZEntryAndFile for FIfile {
         fn from_zzz_entry_and_file(entry: &ZZZEntry, file_path: &str) -> io::Result<Self> {
-            // Create a FIfile struct to hold the entries
-            let mut fifile = FIfile::default();
-            fifile.file_path = entry.string_data.clone();
-
             // Technically you don't need to always read the whole fi into memory except when it or it's parents are compressed. Just a simplication to load it into memory. You could always calculate the position from the fl file. Index*12 = the offset of an entry.
             let buffer = match entry.compression_type {
                 CompressionTypeT::None => {
@@ -394,9 +418,12 @@ pub mod oviiirs_archive {
             };
             let mut cursor = io::Cursor::new(buffer);
 
-            fifile.entries = FI::read_entries(&mut cursor)?;
-
-            Ok(fifile)
+            // Create a FIfile struct to hold the entries
+            Ok(FIfile {
+                file_path: file_path.to_owned(),
+                entries: FI::read_entries(&mut cursor)?,
+                //..Default::default() // Add this if you have other fields in FLfile
+            })
         }
     }
 
@@ -444,34 +471,11 @@ pub mod oviiirs_archive {
             // Initialize a BufReader for efficient reading
             let mut reader = BufReader::new(cursor);
 
-            // Create a FL struct to hold the entries
-            let mut fl = FLfile::default();
-
-            fl.file_path = entry.string_data.clone();
-
-            loop {
-                // Add the read line to FL.entries
-
-                match FL::read_entry(&mut reader) {
-                    Ok(item) => {
-                        fl.entries.push(item);
-                    }
-                    Err(error) => {
-                        return match error.kind() {
-                            io::ErrorKind::UnexpectedEof => {
-                                //println!("Cursor is already at the end of the data.");
-                                break;
-                            }
-                            _ => {
-                                eprintln!("Error occurred: {}", error);
-                                Err(error)
-                            }
-                        };
-                    }
-                }
-            }
-
-            Ok(fl)
+            Ok(FLfile {
+                file_path: file_path.to_owned(),
+                entries: FL::read_entries(&mut reader)?,
+                //..Default::default() // Add this if you have other fields in FLfile
+            })
         }
     }
 
