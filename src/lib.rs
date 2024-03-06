@@ -380,6 +380,14 @@ pub mod oviiirs_archive {
         }
     }
 
+    impl WriteEntry for FL {
+        fn write_entry<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+            // Write string representation followed by Windows-style line ending
+            writer.write_all(format!("{}\r\n", self).as_bytes())?;
+            Ok(())
+        }
+    }
+
     trait WriteEntries {
         fn write_entries<W: Write>(&self, writer: &mut W) -> io::Result<()>;
     }
@@ -508,6 +516,12 @@ pub mod oviiirs_archive {
 
         fn deref(&self) -> &Self::Target {
             &self.0
+        }
+    }
+    
+    impl fmt::Display for FL {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.0)
         }
     }
 
