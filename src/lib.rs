@@ -28,9 +28,96 @@ pub mod oviiirs_archive {
     use std::path::Path;
     use std::path::PathBuf;
     use toml;
+    use typed_path::Utf8NativeEncoding;
+    use typed_path::Utf8NativePathBuf;
     use typed_path::Utf8Path;
     use typed_path::Utf8TypedPath;
+    use typed_path::Utf8WindowsEncoding;
     use typed_path::Utf8WindowsPath;
+
+    pub trait CreateDirectories {
+        fn create_directories(&self) -> io::Result<()>;
+    }
+    impl CreateDirectories for PathBuf {
+        fn create_directories(&self) -> io::Result<()> {
+            if let Some(parent) = self.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            Ok(())
+        }
+    }
+
+    pub trait GenerateRelativePathFromWindowsPathString {
+        fn generate_relative_path_from_windows_path_string(&self) -> Utf8NativePathBuf;
+    }
+
+    impl GenerateRelativePathFromWindowsPathString for str {
+        fn generate_relative_path_from_windows_path_string(&self) -> Utf8NativePathBuf {
+            let windows_file_path = Utf8WindowsPath::new(self);
+            let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
+                Ok(p) => p,
+                Err(_) => &windows_file_path,
+            };
+            relative_windows_file_path.with_encoding::<Utf8NativeEncoding>()
+        }
+    }
+
+    impl GenerateRelativePathFromWindowsPathString for String {
+        fn generate_relative_path_from_windows_path_string(&self) -> Utf8NativePathBuf {
+            self.as_str()
+                .generate_relative_path_from_windows_path_string()
+        }
+    }
+
+    pub trait GenerateNativePath {
+        fn generate_native_path(&self) -> Utf8NativePathBuf;
+    }
+
+    impl GenerateNativePath for str {
+        fn generate_native_path(&self) -> Utf8NativePathBuf {
+            match Utf8TypedPath::derive(self) {
+                Utf8TypedPath::Unix(p) => p.with_encoding::<Utf8NativeEncoding>(),
+                Utf8TypedPath::Windows(p) => p.with_encoding::<Utf8NativeEncoding>(),
+            }
+        }
+    }
+
+    impl GenerateNativePath for String {
+        fn generate_native_path(&self) -> Utf8NativePathBuf {
+            self.as_str().generate_native_path()
+        }
+    }
+
+    trait GenerateWindowsPath {
+        fn generate_windows_path(&self) -> String;
+        fn generate_windows_path_with_prefix(&self) -> String;
+    }
+
+    impl GenerateWindowsPath for str {
+        fn generate_windows_path(&self) -> String {
+            match Utf8TypedPath::derive(self) {
+                Utf8TypedPath::Unix(p) => p.with_encoding::<Utf8WindowsEncoding>().to_string(),
+                Utf8TypedPath::Windows(p) => p.to_string(),
+            }
+        }
+
+        fn generate_windows_path_with_prefix(&self) -> String {
+            let temp = self.generate_windows_path();
+            let windows_file_path = Utf8WindowsPath::new(temp.as_str());
+            let prefix = Utf8WindowsPath::new("c:\\");
+            prefix.join(windows_file_path).to_string()
+        }
+    }
+
+    impl GenerateWindowsPath for String {
+        fn generate_windows_path(&self) -> String {
+            self.as_str().generate_windows_path()
+        }
+
+        fn generate_windows_path_with_prefix(&self) -> String {
+            self.as_str().generate_windows_path_with_prefix()
+        }
+    }
 
     #[derive(Debug, Serialize, Deserialize, Default, Clone)]
     pub struct ZZZfiles {
@@ -247,7 +334,7 @@ pub mod oviiirs_archive {
         }
     }
 
-    #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+    #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq)]
     pub struct ZZZEntry {
         pub string_length: u32,
         pub string_data: String,
@@ -255,6 +342,94 @@ pub mod oviiirs_archive {
         pub file_size: u32,
         pub compression_type: CompressionTypeT, //this doesn't exist in the ZZZ file but it does in FIFLFS.
     }
+
+    impl ReadEntry for ZZZEntry {
+        fn read_entry<R: Read>(reader: &mut R) -> io::Result<Self> {
+            let mut result = ZZZEntry::default();
+
+            result.string_length =
+                bincode::deserialize(&read_bytes(reader, std::mem::size_of::<u32>())?).map_err(
+                    |err| match *err {
+                        bincode::ErrorKind::Io(io_err) => io_err,
+                        _ => io::Error::new(io::ErrorKind::InvalidData, err),
+                    },
+                )?;
+
+            let string_data_bytes = read_bytes(reader, result.string_length as usize)?;
+            result.string_data = String::from_utf8(string_data_bytes).map_err(|err| match err {
+                _ => io::Error::new(io::ErrorKind::InvalidData, err),
+            })?;
+
+            result.file_offset =
+                bincode::deserialize(&read_bytes(reader, std::mem::size_of::<u64>())?).map_err(
+                    |err| match *err {
+                        bincode::ErrorKind::Io(io_err) => io_err,
+                        _ => io::Error::new(io::ErrorKind::InvalidData, err),
+                    },
+                )?;
+
+            result.file_size =
+                bincode::deserialize(&read_bytes(reader, std::mem::size_of::<u32>())?).map_err(
+                    |err| match *err {
+                        bincode::ErrorKind::Io(io_err) => io_err,
+                        _ => io::Error::new(io::ErrorKind::InvalidData, err),
+                    },
+                )?;
+
+            Ok(result)
+        }
+    }
+
+    impl WriteEntry for ZZZEntry {
+        fn write_entry<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+            // Check if string length matches string data length
+            if self.string_length != self.string_data.len() as u32 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "String length does not match string_data length",
+                ));
+            }
+
+            // Check if string length matches string data length
+            if self.compression_type != CompressionTypeT::None {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Compression_type other than CompressionTypeT::None is ignored.",
+                ));
+            }
+
+            // Write string length
+            let string_length_bytes =
+                bincode::serialize(&self.string_length).map_err(|err| match *err {
+                    bincode::ErrorKind::Io(io_err) => io_err,
+                    _ => io::Error::new(io::ErrorKind::InvalidData, err),
+                })?;
+            writer.write_all(&string_length_bytes)?;
+
+            // Write string data
+            writer.write_all(self.string_data.as_bytes())?;
+
+            // Write file offset
+            let file_offset_bytes =
+                bincode::serialize(&self.file_offset).map_err(|err| match *err {
+                    bincode::ErrorKind::Io(io_err) => io_err,
+                    _ => io::Error::new(io::ErrorKind::InvalidData, err),
+                })?;
+            writer.write_all(&file_offset_bytes)?;
+
+            // Write file size
+            let file_size_bytes =
+                bincode::serialize(&self.file_size).map_err(|err| match *err {
+                    bincode::ErrorKind::Io(io_err) => io_err,
+                    _ => io::Error::new(io::ErrorKind::InvalidData, err),
+                })?;
+            writer.write_all(&file_size_bytes)?;
+
+            Ok(())
+        }
+    }
+
+    impl ReadEntries for ZZZEntry {}
 
     pub trait ReadEntry: DeserializeOwned {
         fn read_entry<R: Read>(reader: &mut R) -> io::Result<Self> {
@@ -276,8 +451,15 @@ pub mod oviiirs_archive {
 
     trait ReadEntries: ReadEntry {
         fn read_entries<R: Read>(reader: &mut R) -> io::Result<Vec<Self>> {
+            Self::read_entries_with_limit(reader, usize::MAX)
+        }
+
+        fn read_entries_with_limit<R: Read>(
+            reader: &mut R,
+            max_entries: usize,
+        ) -> io::Result<Vec<Self>> {
             let mut vec: Vec<Self> = vec![];
-            loop {
+            for _ in 0..max_entries {
                 match Self::read_entry(reader) {
                     Ok(item) => {
                         vec.push(item);
@@ -285,8 +467,8 @@ pub mod oviiirs_archive {
                     Err(error) => {
                         return match error.kind() {
                             io::ErrorKind::UnexpectedEof => {
-                                //println!("Cursor is already at the end of the data.");
-                                Ok(vec)
+                                // println!("Cursor is already at the end of the data.");
+                                break;
                             }
                             _ => {
                                 eprintln!("Error occurred: {}", error);
@@ -296,6 +478,7 @@ pub mod oviiirs_archive {
                     }
                 }
             }
+            Ok(vec)
         }
     }
 
@@ -330,6 +513,46 @@ pub mod oviiirs_archive {
 
     // Implement ReadEntry for FI
     impl BufReadEntries for FL {}
+
+    #[test]
+    fn test_zzz_read_write_entries() {
+        // Sample data to write
+        let data_to_write = vec![
+            ZZZEntry {
+                string_length: 5,
+                string_data: "hello".to_string(),
+                file_offset: 20,
+                file_size: 100,
+                compression_type: CompressionTypeT::None,
+            },
+            ZZZEntry {
+                string_length: 5,
+                string_data: "world".to_string(),
+                file_offset: 50,
+                file_size: 80,
+                compression_type: CompressionTypeT::None,
+            },
+            ZZZEntry::default(),
+        ];
+
+        // Write the data to a writer
+        let mut writer: Vec<u8> = Vec::new();
+        if let Err(err) = data_to_write.write_entries(&mut writer) {
+            panic!("Failed to write entries: {}", err);
+        }
+
+        // Read the written data back from a reader
+        let mut reader = Cursor::new(writer);
+        let read_data = match ZZZEntry::read_entries(&mut reader) {
+            Ok(data) => data,
+            Err(err) => {
+                panic!("Failed to read entries: {}", err);
+            }
+        };
+
+        // Ensure that the read data matches the written data
+        assert_eq!(data_to_write, read_data);
+    }
 
     #[test]
     fn test_fi_read_write_entries() {
@@ -509,7 +732,7 @@ pub mod oviiirs_archive {
         }
     }
 
-    #[derive(Debug, Deserialize, Serialize, Clone)]
+    #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     pub struct ZZZHeader {
         pub file_path: String,
         pub archive_type: ZZZArchiveType,
@@ -982,35 +1205,11 @@ pub mod oviiirs_archive {
         let count = u32::from_le_bytes(count_bytes);
 
         // Deserialize the entries
-        let mut entries = Vec::with_capacity(count as usize);
-        let compression_type = CompressionTypeT::None;
-        for _ in 0..count {
-            let string_length_bytes: [u8; 4] =
-                bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
-            let string_length = u32::from_le_bytes(string_length_bytes);
-
-            let string_data_bytes = read_bytes(&mut file, string_length as usize)?;
-            let string_data = String::from_utf8(string_data_bytes).unwrap();
-
-            let file_offset = bincode::deserialize(&read_bytes(&mut file, 8)?).unwrap();
-            let file_size_bytes: [u8; 4] =
-                bincode::deserialize(&read_bytes(&mut file, 4)?).unwrap();
-            let file_size = u32::from_le_bytes(file_size_bytes);
-
-            entries.push(ZZZEntry {
-                string_length,
-                string_data,
-                file_offset,
-                file_size,
-                compression_type,
-            });
-        }
-
         Ok(ZZZHeader {
             file_path: file_path.to_string(),
             archive_type,
             count,
-            entries,
+            entries: ZZZEntry::read_entries(&mut file)?,
             fiflfs_files: None,
         })
     }

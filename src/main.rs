@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    fs, io,
+    io,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     process::exit,
@@ -9,10 +9,8 @@ use std::{
 
 use oviiirs_archive::oviiirs_archive::*;
 mod lzss;
-use regex::Regex;
-use typed_path::{Utf8NativeEncoding, Utf8NativePathBuf, Utf8TypedPath, Utf8WindowsPath};
-
 use lazy_static::lazy_static;
+use regex::Regex;
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -165,10 +163,10 @@ fn handle_button_click(label: &MainMenuSelection) -> io::Result<()> {
     let mut config = SHARED_CONFIG.lock().unwrap();
 
     let config_path = &CONFIG_PATH;
-    let cache_path = generate_native_path("cache");
+    let cache_path = "cache".generate_native_path();
     let toml_path = cache_path.join("archives.toml").to_string();
     let bincode_path = cache_path.join("archives.bin").to_string();
-    create_directories(&PathBuf::from(&toml_path))?;
+    PathBuf::from(&toml_path).create_directories()?;
     // Perform actions based on the button click
     match label {
         MainMenuSelection::ChangeFF8Directory => {
@@ -410,10 +408,12 @@ where
     I: Iterator<Item = &'a ZZZEntry>,
 {
     for entry in entries {
-        let native_file_path = generate_relative_path(&entry.string_data);
-        let extract_path = generate_native_path(&config.locations.extract_directory);
+        let native_file_path = &entry
+            .string_data
+            .generate_relative_path_from_windows_path_string();
+        let extract_path = &config.locations.extract_directory.generate_native_path();
         let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
-        create_directories(&new_extract_path)?;
+        new_extract_path.create_directories()?;
 
         let decompressed_bytes =
             read_bytes_from_file(file_path, entry.file_offset, entry.file_size as u64)?;
@@ -507,10 +507,10 @@ where
         {
             let (fi, fl) = fi_fl;
 
-            let native_file_path = generate_relative_path(&fl);
-            let extract_path = generate_native_path(&config.locations.extract_directory);
+            let native_file_path = &fl.generate_relative_path_from_windows_path_string();
+            let extract_path = &config.locations.extract_directory.generate_native_path();
             let new_extract_path = PathBuf::from(extract_path.join(native_file_path).as_str());
-            create_directories(&new_extract_path)?;
+            new_extract_path.create_directories()?;
 
             println!("FI: {:?}", fi);
             println!("FL: {:?}", fl);
@@ -545,29 +545,5 @@ where
         }
     }
     //end dump toml of data
-    Ok(())
-}
-
-fn generate_relative_path(fl: &str) -> Utf8NativePathBuf {
-    let windows_file_path = Utf8WindowsPath::new(fl);
-    let relative_windows_file_path = match windows_file_path.strip_prefix("c:\\") {
-        Ok(p) => p,
-        Err(_) => windows_file_path,
-    };
-    relative_windows_file_path.with_encoding::<Utf8NativeEncoding>()
-}
-
-fn generate_native_path(outpath: &str) -> Utf8NativePathBuf {
-    match Utf8TypedPath::derive(outpath) {
-        Utf8TypedPath::Unix(p) => p.with_encoding::<Utf8NativeEncoding>(),
-        Utf8TypedPath::Windows(p) => p.with_encoding::<Utf8NativeEncoding>(),
-    }
-}
-
-fn create_directories(new_extract_path: &PathBuf) -> io::Result<()> {
-    if let Some(parent) = new_extract_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
     Ok(())
 }
