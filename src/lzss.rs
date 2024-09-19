@@ -1,6 +1,7 @@
 pub use lzss::{compress, decompress};
 
 pub mod lzss {
+    use log::{debug, error, info, trace, warn};
     use std::{cell::RefCell, fmt};
 
     const R_SIZE: usize = 4078;
@@ -18,9 +19,10 @@ pub mod lzss {
     const N_MINUS1: usize = N - 1;
     const THRESHOLD: usize = 2;
     const RIGHT_SIDE_SIZE: usize = 4353;
-    //const N_PLUS1: usize = N + 1;
+    const N_PLUS1: usize = N + 1;
     const N_PLUS2: usize = N + 2;
     const N_PLUS17: usize = N + F_MINUS1;
+
     fn decode_buffer(code_buf: &[u8]) -> String {
         code_buf
             .iter()
@@ -35,6 +37,7 @@ pub mod lzss {
             .collect::<Vec<String>>()
             .join(", ")
     }
+
     #[derive(Debug)]
     pub struct CompressionError {
         pub message: String,
@@ -57,10 +60,10 @@ pub mod lzss {
     }
 
     struct CompressImpl {
-        left_side: Vec<u32>,
-        right_side: Vec<u32>,
-        parent: Vec<u32>,
-        text_buf: Vec<u8>,
+        left_side: [u32; N_PLUS2],
+        right_side: [u32; RIGHT_SIDE_SIZE],
+        parent: [u32; N_PLUS2],
+        text_buf: [u8; N_PLUS17],
         match_length: usize,
         match_position: usize,
     }
@@ -68,23 +71,20 @@ pub mod lzss {
     impl CompressImpl {
         #[allow(dead_code)]
         fn new() -> Self {
-            let left_side = vec![NOT_USED; N_PLUS2];
-            let right_side = vec![NOT_USED; RIGHT_SIDE_SIZE];
-            let parent = vec![NOT_USED; N_PLUS2];
-            let text_buf = vec![0; N_PLUS17];
-            let match_length = 0;
-            let match_position = 0;
+            let mut right_side = [0u32; RIGHT_SIDE_SIZE];
+            right_side[N_PLUS1..].fill(NOT_USED);
 
-            CompressImpl {
-                left_side,
-                right_side,
-                parent,
-                text_buf,
-                match_length,
-                match_position,
+            Self {
+                left_side: [0; N_PLUS2],
+                right_side: right_side,
+                parent: [NOT_USED; N_PLUS2],
+                text_buf: [0; N_PLUS17],
+                match_length: 0,
+                match_position: 0,
             }
         }
 
+        //only should be called by compress
         fn insert_node(&mut self, item: usize) {
             let mut cmp: i16 = 1;
             let key = &self.text_buf[item..];
@@ -149,6 +149,7 @@ pub mod lzss {
             self.parent[p] = NOT_USED; // remove p
         }
 
+        //only should be called by compress
         fn delete_node(&mut self, p: usize) {
             if self.parent[p] == NOT_USED {
                 return;
@@ -186,26 +187,31 @@ pub mod lzss {
             } else {
                 self.left_side[self.parent[p] as usize] = q;
             }
+            self.parent[p] = NOT_USED;
         }
-        #[allow(dead_code)]
-        fn compress(&mut self, src: &[u8], verify: &[u8]) -> Result<Vec<u8>, CompressionError> {
-            println!("Starting compression...");
 
+        #[allow(dead_code)]
+        fn compress(mut self, src: &[u8]) -> Vec<u8> {
+            // should only be called once
+            if src.iter().peekable().peek().is_none() {
+                info!("No data to compress. Returning empty result.");
+                return Vec::new();
+            }
+
+            info!("Starting compression...");
+
+            let mut result = Vec::with_capacity(src.len() / 2);
             let mut cur_result = 0;
-            let size_alloc = src.len() / 2;
             let mut code_buf = [0u8; F_MINUS1];
             let mut data = src.iter();
-            let mut result = Vec::with_capacity(size_alloc);
-
-            println!("Initialized variables...");
-
             let mut s = 0;
             let mut r = R_SIZE;
             let mut len = 0;
 
-            println!("Entering main compression loop...");
+            info!("Initialized variables...");
 
-            while len < NODE_SIZE as usize && data.len() > 0 {
+            info!("Filling text_buff with the start of data.");
+            while len < NODE_SIZE {
                 match data.next() {
                     Some(symbol) => {
                         self.text_buf[r + len] = *symbol;
@@ -215,38 +221,38 @@ pub mod lzss {
                 }
             }
 
-            if len == 0 {
-                println!("No data to compress. Returning empty result.");
-                result.clear();
-                return Ok(result);
-            }
+            // info!("Checking if any data was inserted.");
+            // if len == 0 {
+            //     info!("No data to compress. Returning empty result.");
+            //     result.clear();
+            //     return result;
+            // }
 
-            println!("Inserted nodes for initial data...");
+            info!("Inserted nodes for initial data...");
 
             for i in 1..=NODE_SIZE {
-                self.insert_node(r as usize - i);
+                self.insert_node(r - i);
             }
-            self.insert_node(r as usize);
+            self.insert_node(r);
 
-            println!("Initialized nodes for compression...");
+            info!("Initialized nodes for compression...");
 
             let mut code_buf_ptr = 1;
             let mut mask = 1;
 
-            println!("Starting loop iteration...");
+            info!("Starting loop iteration...");
             loop {
-                if self.match_length > len as usize {
-                    self.match_length = len as usize;
+                if self.match_length > len {
+                    self.match_length = len;
+                    debug!("Match length adjusted...");
                 }
-
-                println!("Match length adjusted...");
 
                 if self.match_length <= 2 {
                     self.match_length = 1;
                     code_buf[0] |= mask;
-                    code_buf[code_buf_ptr] = self.text_buf[r as usize];
+                    code_buf[code_buf_ptr] = self.text_buf[r];
                     code_buf_ptr += 1;
-                    println!(
+                    debug!(
                         "Match length is less than or equal to 2... \n\t\t{:?}\n\t\t{:?}",
                         code_buf,
                         decode_buffer(&code_buf)
@@ -257,20 +263,20 @@ pub mod lzss {
                     code_buf[code_buf_ptr] = ((self.match_position >> 4) as u32 & MATCH_MASK) as u8
                         | (self.match_length - (2 + 1)) as u8;
                     code_buf_ptr += 1;
-                    println!(
+                    debug!(
                         "Match length is greater than 2... \n\t\t{:?}\n\t\t{:?}",
                         code_buf,
                         decode_buffer(&code_buf)
                     );
                 }
 
-                if mask < 1 << 7 {
+                if (mask << 1) != 0 {
                     mask = mask << 1;
                 } else {
-                    println!("Mask reached maximum value...");
+                    info!("Mask reached maximum value...");
 
                     result.extend_from_slice(&code_buf[..code_buf_ptr]);
-                    assert_eq!(result, verify[..result.len()]);
+                    //assert_eq!(result, verify[..result.len()]);
 
                     cur_result += code_buf_ptr;
                     code_buf[0] = 0;
@@ -278,12 +284,12 @@ pub mod lzss {
                     mask = 1;
                 }
 
-                println!("Result updated...");
+                info!("Result updated...");
 
                 let last_match_length = self.match_length;
                 let mut loop_count = 0;
 
-                println!("Entering match processing loop...");
+                info!("Entering match processing loop...");
                 for _ in 0..last_match_length {
                     let c = match data.next() {
                         Some(symbol) => symbol,
@@ -294,9 +300,7 @@ pub mod lzss {
                     self.delete_node(s);
                     self.text_buf[s] = *c;
 
-                    if s < F_MINUS1 {
-                        self.text_buf[s + N] = *c;
-                    }
+                    self.text_buf[s + N] = *c;
 
                     s = (s + 1) & N_MINUS1;
                     r = (r + 1) & N_MINUS1;
@@ -305,9 +309,9 @@ pub mod lzss {
                     loop_count += 1;
                 }
 
-                println!("Match processed...");
+                info!("Match processed...");
 
-                println!("Processing remaining matches...");
+                info!("Processing remaining matches...");
                 for _ in loop_count..last_match_length {
                     self.delete_node(s);
                     s = (s + 1) & N_MINUS1;
@@ -318,15 +322,15 @@ pub mod lzss {
                     }
                 }
 
-                println!("Remaining matches processed...");
+                info!("Remaining matches processed...");
 
                 if len == 0 {
-                    println!("No more data to compress. Exiting loop...");
+                    info!("No more data to compress. Exiting loop...");
                     break;
                 }
             }
 
-            println!("Compression loop completed...");
+            info!("Compression loop completed...");
 
             if code_buf_ptr > 1 {
                 result.extend_from_slice(&code_buf[..code_buf_ptr]);
@@ -335,16 +339,17 @@ pub mod lzss {
 
             result.truncate(cur_result);
 
-            assert_eq!(result, verify[..result.len()]);
-            println!("Compression successful. Returning result.");
-            Ok(result)
+            //assert_eq!(result, verify[..result.len()]);
+            info!("Compression successful. Returning result.");
+            result
         }
     }
+
     #[allow(dead_code)]
-    pub fn compress(src: &[u8], verify: &[u8]) -> Result<Vec<u8>, CompressionError> {
-        let mut compress_impl = CompressImpl::new();
-        compress_impl.compress(src, verify)
+    pub fn compress(src: &[u8]) -> Vec<u8> {
+        CompressImpl::new().compress(src)
     }
+
     #[allow(dead_code)]
     pub fn decompress(src: &[u8], dst_size: usize) -> Vec<u8> {
         let mut dst = Vec::<u8>::new();
@@ -406,39 +411,75 @@ pub mod lzss {
 
         #[test]
         fn test_compress_decompress() {
+            let _ = env_logger::builder().is_test(true).try_init();
             // Test data
-            let original_data_values = [
-                //"",                                                         // Empty string
-                //"Hello",                                                    // String with length 5
-                //"1234567890",                                               // String with length 10
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", // Longer string
-            ];
-            let compressed_verification_values: [Vec<u8>; 1] = [
-                //vec![],
-                //vec![31, 72, 101, 108, 108, 111],
-                //vec![255, 49, 50, 51, 52, 53, 54, 55, 56, 3, 57, 48],
-                vec![
-                    255, 76, 111, 114, 101, 109, 32, 105, 112, 255, 115, 117, 109, 32, 100, 111,
-                    108, 111, 255, 114, 32, 115, 105, 116, 32, 97, 109, 255, 101, 116, 44, 32, 99,
-                    111, 110, 115, 255, 101, 99, 116, 101, 116, 117, 114, 32, 255, 97, 100, 105,
-                    112, 105, 115, 99, 105, 255, 110, 103, 32, 101, 108, 105, 116, 46,
-                ],
+            let test_data: [(&str, Vec<u8>); 11] = [
+                ("", vec![]),
+                ("Hello", vec![31, 72, 101, 108, 108, 111]),
+                (
+                    "1234567890",
+                    vec![255, 49, 50, 51, 52, 53, 54, 55, 56, 3, 57, 48],
+                ),
+                (
+                    "Lorem ips",
+                    vec![255, 76, 111, 114, 101, 109, 32, 105, 112, 1, 115],
+                ),
+                (
+                    "Lorem ipsum d",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 31, 115, 117, 109, 32, 100,
+                    ],
+                ),
+                (
+                    "Lorem ipsum do",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 63, 115, 117, 109, 32, 100, 111,
+                    ],
+                ),
+                (
+                    "Lorem ipsum dol",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 127, 115, 117, 109, 32, 100,
+                        111, 108,
+                    ],
+                ),
+                (
+                    "Lorem ipsum dolor",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 255, 115, 117, 109, 32, 100,
+                        111, 108, 111, 1, 114,
+                    ],
+                ),
+                (
+                    "Lorem ipsum dolor s",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 255, 115, 117, 109, 32, 100,
+                        111, 108, 111, 7, 114, 32, 115,
+                    ],
+                ),
+                (
+                    "Lorem ipsum dolor sit",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 255, 115, 117, 109, 32, 100,
+                        111, 108, 111, 31, 114, 32, 115, 105, 116,
+                    ],
+                ),
+                (
+                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                    vec![
+                        255, 76, 111, 114, 101, 109, 32, 105, 112, 255, 115, 117, 109, 32, 100,
+                        111, 108, 111, 255, 114, 32, 115, 105, 116, 32, 97, 109, 255, 101, 116, 44,
+                        32, 99, 111, 110, 115, 255, 101, 99, 116, 101, 116, 117, 114, 32, 255, 97,
+                        100, 105, 112, 105, 115, 99, 105, 255, 110, 103, 32, 101, 108, 105, 116,
+                        46,
+                    ],
+                ),
             ];
 
             // Iterate over each original data value
-            for (original_data, compressed_verification_data) in original_data_values
-                .iter()
-                .map(|s| s.as_bytes())
-                .zip(compressed_verification_values.iter())
-            {
+            for (original_data, compressed_verification_data) in test_data.as_ref() {
                 // Compress the data
-                let compressed_data = match compress(original_data, compressed_verification_data) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        eprintln!("Compression error: {}", e);
-                        panic!("Compression failed");
-                    }
-                };
+                let compressed_data = compress(original_data.as_bytes());
                 assert_eq!(&compressed_data, compressed_verification_data);
 
                 // Decompress the data
@@ -447,7 +488,7 @@ pub mod lzss {
                 // Assert that decompressed data matches original data
                 assert_eq!(
                     std::str::from_utf8(&decompressed_data).unwrap(),
-                    std::str::from_utf8(original_data).unwrap()
+                    std::str::from_utf8(original_data.as_bytes()).unwrap()
                 );
             }
         }
