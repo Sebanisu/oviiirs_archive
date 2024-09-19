@@ -2,5 +2,8 @@
     "lldb.launch.terminal": "external",
     "lldb.launch.env": {
         "RUST_BACKTRACE": "full"
-    }
+    },
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true
 }
